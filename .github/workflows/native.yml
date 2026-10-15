@@ -62,14 +62,29 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 21
-      - uses: android-actions/setup-android@v3
       - run: npm ci
-      - run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'build-tools;36.0.0'
-      - run: npm run mobile:android
+      - name: Prepare verified Android SDK and JDK
+        shell: bash
+        env:
+          DRAWSKETCH_NATIVE_CACHE: ${{ runner.temp }}/drawsketch-native
+        run: python3 scripts/setup-android.py 2>&1 | tee "$RUNNER_TEMP/android-sdk-setup.log"
+      - name: Build test APK
+        shell: bash
+        env:
+          DRAWSKETCH_NATIVE_CACHE: ${{ runner.temp }}/drawsketch-native
+        run: npm run mobile:android 2>&1 | tee "$RUNNER_TEMP/android-build.log"
+      - name: Report Android build diagnostics
+        if: failure()
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP'])
+          for path in [root/'android-sdk-setup.log', root/'drawsketch-native/sdk-install.log', root/'android-build.log']:
+              if path.is_file():
+                  detail = path.read_text(errors='replace')[-4500:]
+                  detail = detail.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+                  print(f'::error title=Android {path.name}::{detail}')
       - uses: actions/upload-artifact@v4
         with:
           name: android-test-apk

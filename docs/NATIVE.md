@@ -52,7 +52,7 @@ npm run mobile:android
 
 The helper uses official checksums and the provided environment CA when present. Java proxy properties are saved in its local Gradle cache. It preserves an existing Gradle configuration rather than overwriting it. Gradle's wrapper distribution has a pinned SHA-256.
 
-`npm run mobile:android` builds current web assets, syncs Capacitor, compiles the debug application, and copies the APK to `release/DrawSketch-0.3.0-android-debug.apk`. Android 7/API 24 or later is required, with a current Android System WebView. The APK is installable for testing and uses Android debug signing. A Play Store release requires a publisher-controlled signing key and release AAB build; keys are never committed.
+`npm run mobile:android` builds current web assets, syncs Capacitor, compiles the debug application, and copies the APK to `release/DrawSketch-0.3.1-android-debug.apk`. Android 7/API 24 or later is required, with a current Android System WebView. The APK is installable for testing and uses Android debug signing. A Play Store release requires a publisher-controlled signing key and release AAB build; keys are never committed.
 
 ### iPhone and iPad
 
