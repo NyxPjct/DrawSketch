@@ -37,7 +37,7 @@ NSIS and portable executable creation additionally need a working Wine installat
 
 Linux may need desktop runtime libraries (GTK 3, NSS, ALSA, and related Chromium libraries). The smoke script uses headless Ozone; its `--no-sandbox` switch is restricted to cloud automation. Normal app launch retains Electron sandboxing.
 
-Desktop packages are unsigned test builds. Signed Windows/macOS distribution requires the publisher's certificates. macOS notarization and real macOS execution require macOS and the relevant Apple configuration.
+Desktop packages do not have a verified publisher signature or notarization. macOS test packages use local ad hoc signing with hardened runtime disabled; production distribution requires a publisher certificate, hardened runtime, and notarization. Signed Windows distribution also requires the publisher's certificate. macOS notarization and real macOS execution require macOS and the relevant Apple configuration.
 
 ### Android
 
@@ -52,7 +52,7 @@ npm run mobile:android
 
 The helper uses official checksums and the provided environment CA when present. Java proxy properties are saved in its local Gradle cache. It preserves an existing Gradle configuration rather than overwriting it. Gradle's wrapper distribution has a pinned SHA-256.
 
-`npm run mobile:android` builds current web assets, syncs Capacitor, compiles the debug application, and copies the APK to `release/DrawSketch-0.3.1-android-debug.apk`. Android 7/API 24 or later is required, with a current Android System WebView. The APK is installable for testing and uses Android debug signing. A Play Store release requires a publisher-controlled signing key and release AAB build; keys are never committed.
+`npm run mobile:android` builds current web assets, syncs Capacitor, compiles the debug application, and copies the APK to `release/DrawSketch-0.3.1-android-debug.apk`. Android 7/API 24 or later is required, with a current Android System WebView. The APK is installable for testing and uses Android debug signing. Debug keys can differ between build machines; export a sketchbook backup before replacing a test APK. Production updates require a consistent publisher-controlled signing key. A Play Store release requires a publisher-controlled signing key and release AAB build; keys are never committed.
 
 ### iPhone and iPad
 
@@ -71,11 +71,13 @@ A simulator archive is not an installable IPA. This Linux cloud host cannot comp
 
 [Native packages](../.github/workflows/native.yml) runs manually or on version tags. It validates the editor, builds desktop packages on each native host, builds the Android test APK, and compiles an iOS simulator app on macOS. Successful jobs upload artifacts. After editor validation succeeds, a tagged run publishes the packages from successful jobs to a GitHub Release. A failed platform job does not block packages that built successfully, and its missing package must not be described as available.
 
+If an Apple Silicon runner cannot be allocated, [Recover macOS packages](../.github/workflows/macos-recovery.yml) can package an existing release tag on the supported `macos-15-intel` runner. It verifies the tag against the package version, builds both Intel and Apple Silicon packages, checks the packaged Intel app with the Electron smoke workflow, preserves existing release checksums, and appends the new packages to that release. The normal desktop workflow also uses this Intel host for both Mac architectures.
+
 The workflow uses GitHub's repository-scoped token for release assets. It does not sign store packages, publish to app stores, or invent developer certificates. Check its status before downloading a package.
 
 ## Verification scope
 
-The Linux cloud build verifies the browser editor, compiles an Android debug APK, Linux AppImage/Debian packages, and a Windows ZIP. The Windows NSIS/portable executable cross-build is blocked by the Wine runtime on this host and is handled by the native Windows job. Electron runtime automation checks the actual desktop engine. Windows cross-compilation does not establish Windows runtime compatibility. macOS/iOS compilation and execution are delegated to the native-host workflow and must be confirmed in its results. No physical pen or tablet is connected to this environment.
+The Linux cloud build verifies the browser editor, compiles an Android debug APK, Linux AppImage/Debian packages, and a Windows ZIP. The Windows NSIS/portable executable cross-build is blocked by the Wine runtime on this host and is handled by the native Windows job. Electron runtime automation checks the actual desktop engine. Windows cross-compilation does not establish Windows runtime compatibility. macOS/iOS compilation is handled by native-host workflows. The macOS recovery workflow also runs the packaged Intel app through the Electron smoke check. Compilation alone does not establish Apple Silicon runtime compatibility or an executed iOS simulator session; these checks still need the relevant runtime and hardware. No physical pen or tablet is connected to this environment.
 
 ## Physical-device acceptance matrix
 

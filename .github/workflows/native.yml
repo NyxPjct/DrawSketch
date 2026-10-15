@@ -26,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest, macos-15-intel]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     env:
@@ -38,7 +38,10 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run desktop:pack
+      - if: runner.os != 'macOS'
+        run: npm run desktop:pack
+      - if: runner.os == 'macOS'
+        run: npm run desktop:pack -- --mac --x64 --arm64
       - if: runner.os == 'Linux'
         run: DRAWSKETCH_DESKTOP_EXECUTABLE=release/linux-unpacked/drawsketch npm run test:native
       - uses: actions/upload-artifact@v4

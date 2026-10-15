@@ -1,0 +1,100 @@
+name: Recover macOS packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to package
+        required: true
+        default: v0.3.1
+        type: string
+  push:
+    branches: [main]
+    paths: [.github/workflows/macos-recovery.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag || 'v0.3.1' }}
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Verify the release source
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          const tag = process.env.RELEASE_TAG;
+          const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
+          if (!/^v\d+\.\d+\.\d+$/.test(tag) || tag !== `v${version}`) {
+            throw new Error('The checked-out package version must match the requested release tag');
+          }
+          console.log(`Packaging verified release ${tag}`);
+          JS
+          git rev-parse HEAD
+      - run: npm ci
+      - name: Package Intel and Apple Silicon apps
+        run: npm run desktop:pack -- --mac --x64 --arm64 --config.mac.identity=- --config.mac.hardenedRuntime=false
+      - name: Verify the packaged Intel application
+        run: DRAWSKETCH_DESKTOP_EXECUTABLE="$PWD/release/mac/DrawSketch.app/Contents/MacOS/DrawSketch" npm run test:native
+      - name: Preserve published checksums and add macOS packages
+        shell: bash
+        run: |
+          curl --fail --location --silent --show-error --retry 2 \
+            "https://github.com/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG/SHA256SUMS.txt" \
+            -o release/previous-checksums.txt
+          python3 - <<'PY'
+          import hashlib
+          import re
+          from pathlib import Path
+          root = Path('release')
+          entries = {}
+          for line in (root/'previous-checksums.txt').read_text().splitlines():
+              digest, name = line.split(maxsplit=1)
+              name = name.removeprefix('./')
+              if not re.fullmatch(r'[a-fA-F0-9]{64}', digest) or Path(name).name != name:
+                  raise ValueError('Invalid existing release checksum record')
+              entries[name] = digest.lower()
+          packages = sorted([*root.glob('*.dmg'), *root.glob('*.zip')])
+          for architecture in ('x64', 'arm64'):
+              for extension in ('dmg', 'zip'):
+                  if not any(path.name.endswith(f'-{architecture}.{extension}') for path in packages):
+                      raise ValueError(f'Missing macOS {architecture} {extension} package')
+          for path in packages:
+              digest = hashlib.sha256()
+              with path.open('rb') as stream:
+                  for chunk in iter(lambda: stream.read(1024*1024), b''):
+                      digest.update(chunk)
+              entries[path.name] = digest.hexdigest()
+          (root/'SHA256SUMS.txt').write_text(''.join(f'{entries[name]}  ./{name}\n' for name in sorted(entries)))
+          print(f'Preserved and updated checksums for {len(entries)} release packages')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: recovered-macOS
+          if-no-files-found: error
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          files: |
+            release/*.dmg
+            release/*.zip
+            release/SHA256SUMS.txt

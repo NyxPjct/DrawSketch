@@ -34,5 +34,6 @@ mac:
     - dmg
     - zip
   category: public.app-category.graphics-design
-  hardenedRuntime: true
+  identity: "-"
+  hardenedRuntime: false
   icon: public/icons/icon-512.png
