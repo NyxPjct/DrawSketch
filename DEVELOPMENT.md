@@ -16,17 +16,25 @@ The npm cache override keeps writes in the workspace. Do not disable TLS or pack
 
 ## Structure
 
-| File             | Responsibility                                                                    |
-| ---------------- | --------------------------------------------------------------------------------- |
-| `src/main.js`    | Document state, UI, history, autosave, gestures, preferences, and file operations |
-| `src/engine.js`  | Brush engines, symmetry, constrained shapes, fill, and resource limits            |
-| `src/i18n.js`    | English, Brazilian Portuguese, and Spanish catalogs and DOM translations          |
-| `src/storage.js` | IndexedDB document library                                                        |
-| `src/demo.js`    | Original editable demonstration artwork                                           |
-| `src/style.css`  | Theme tokens and desktop, tablet, and phone layouts                               |
-| `vite.config.js` | Production application-shell service worker generation                            |
-| `scripts/`       | Browser automation, application icons, and real screenshots                       |
-| `tests/`         | Editor regressions, professional tools, localization, touch, and offline checks   |
+| File               | Responsibility                                                                                |
+| ------------------ | --------------------------------------------------------------------------------------------- |
+| `src/main.js`      | Document state, UI, history, autosave, gestures, preferences, and file operations             |
+| `src/engine.js`    | Brush engines, texture, color pickup, tilt, symmetry, constrained shapes, and resource limits |
+| `src/i18n.js`      | English, Brazilian Portuguese, and Spanish catalogs and DOM translations                      |
+| `src/storage.js`   | IndexedDB document library                                                                    |
+| `src/studio.js`    | Selections UI, advanced layers, custom brushes, checkpoints, and backups                      |
+| `src/canvas.js`    | Mask/clipping/group compositing, dirty revisions, cached PNG snapshots                        |
+| `src/selection.js` | Rectangle/lasso clipping and non-destructive floating transforms                              |
+| `src/fill*.js`     | Scanline fill and transferable worker requests                                                |
+| `src/history.js`   | Shared-snapshot history memory budget                                                         |
+| `src/native.js`    | Native mobile filesystem and share sheet export                                               |
+| `electron/`        | Isolated desktop renderer and secure local application protocol                               |
+| `android/`, `ios/` | Capacitor platform source projects                                                            |
+| `src/demo.js`      | Original editable demonstration artwork                                                       |
+| `src/style.css`    | Theme tokens and desktop, tablet, and phone layouts                                           |
+| `vite.config.js`   | Production application-shell service worker generation                                        |
+| `scripts/`         | Browser automation, application icons, and real screenshots                                   |
+| `tests/`           | Editor regressions, professional tools, localization, touch, and offline checks               |
 
 ## Editing the interface
 
@@ -34,7 +42,7 @@ English is the base language. Put user-facing text in every catalog, then refere
 
 System document and layer names store translation keys. Custom names are content, so they are never translated. When adding a locale, provide every key and preserve interpolation parameters; the tests check both.
 
-Settings are separate from project files. Theme, language, pressure, finger drawing, stabilization, and fill tolerance are device preferences. Project version 2 stores backgrounds, layer names, blend modes, and locks. Version 1 projects remain readable.
+Settings are separate from project files. Theme, language, pressure, finger drawing, stabilization, and fill tolerance are device preferences. Project version 3 additionally stores masks, clipping flags, transparency locks, and contiguous group membership. Version 1 and 2 projects remain readable. IndexedDB version 2 upgrades the existing document store in place and adds a separate checkpoint store.
 
 ## Validation
 
@@ -72,4 +80,10 @@ Screenshots come from separate fresh browser contexts at desktop (1600 × 1050),
 
 Autosaves are serialized through IndexedDB transactions. Each canvas has a stable ID. New canvases and imported projects retain previous work in the sketchbook. A best-effort unload recovery record supplements normal autosaves. Storage errors keep the current canvas intact and show a localized download reminder.
 
-Raster operations are bounded to 12 million pixels and 24 layers. History is capped at 40 entries and reduced according to canvas dimensions and layer count. Merging is supported for visible, unlocked Normal layers; other blend modes can depend on the layers underneath. Keep this restriction unless appearance preservation is handled correctly.
+Raster operations allow 16 million pixels and 32 layers. Dirty-region redraw applies to ordinary brush strokes; symmetry and shape previews redraw fully. Masks and isolated groups cache surfaces by revision; clipping scratch surfaces are reused. PNG snapshots invalidate only after pixel edits. History counts unique encoded images/masks once, retains up to 80 entries, and trims to a 64/128 MB encoded-image budget. Canvas/GPU/native allocations are additional memory.
+
+Mask pixels encode visibility in alpha. Black painting erases the mask alpha; white painting restores it. Raw artwork remains independent. Groups must be contiguous in document layer order, and opacity is applied after compositing the group's contents. Clipping uses the nearest non-clipping base within the same group. Merge is restricted to compatible, visible, unlocked Normal layers in the same group without clipping.
+
+Autosaves and checkpoint writes are one transaction. Versions are bounded to 12 per document and restore to a new ID. Backup import validates all project metadata and decodes every layer/mask before writing any record in a single transaction. A backup transfers current canvases only; it does not include checkpoint history, device settings, or brush presets.
+
+See [docs/NATIVE.md](docs/NATIVE.md) for native build and hardware validation instructions.

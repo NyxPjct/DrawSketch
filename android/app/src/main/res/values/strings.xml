@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DrawSketch</string>
+    <string name="title_activity_main">DrawSketch</string>
+    <string name="package_name">com.nyxp.drawsketch</string>
+    <string name="custom_url_scheme">com.nyxp.drawsketch</string>
+</resources>

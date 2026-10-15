@@ -435,6 +435,7 @@ test(
           await stroke(page, [180, 140], [320, 140]);
           await blank(page, "Second idea");
           await page.locator("#gallery-button").click();
+          await page.locator("#gallery-dialog").waitFor({ state: "visible" });
           assert.ok((await page.locator(".gallery-card").count()) >= 3);
           await page
             .getByRole("button", { name: "Open First idea", exact: true })

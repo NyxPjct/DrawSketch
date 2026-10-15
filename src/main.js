@@ -8,6 +8,21 @@ import {
 } from "./i18n.js";
 import { saveDocument, getDocument, listDocuments } from "./storage.js";
 import {
+  surface,
+  clone,
+  dirty,
+  encoded,
+  effectiveLayer,
+  renderScene,
+  assignGroup,
+  reorderLayer,
+} from "./canvas.js";
+import { Selection } from "./selection.js";
+import { trimHistory } from "./history.js";
+import { initStudio } from "./studio.js";
+import { saveFile } from "./native.js";
+import { runFill } from "./fill-client.js";
+import {
   brushPresets,
   blendModes,
   MAX_LAYERS,
@@ -61,6 +76,16 @@ const settings = {
   tolerance: Number.isFinite(savedSettings.tolerance)
     ? Math.max(0, Math.min(80, savedSettings.tolerance))
     : 24,
+  texture: ["none", "grain", "canvas"].includes(savedSettings.texture)
+    ? savedSettings.texture
+    : "none",
+  textureStrength: Number.isFinite(savedSettings.textureStrength)
+    ? Math.max(0, Math.min(100, savedSettings.textureStrength))
+    : 35,
+  colorMix: Number.isFinite(savedSettings.colorMix)
+    ? Math.max(0, Math.min(100, savedSettings.colorMix))
+    : 0,
+  tilt: savedSettings.tilt !== false,
 };
 setLanguage(settings.language);
 const portrait = innerWidth < 600;
@@ -72,6 +97,8 @@ const state = {
   titleKey: "demoTitle",
   background: "white",
   layers: [],
+  groups: [],
+  editMask: false,
   activeId: null,
   tool: "brush",
   brush: "pencil",
@@ -97,6 +124,8 @@ const state = {
   penActive: false,
   revision: 0,
 };
+const selection = new Selection(state.width, state.height);
+let studio;
 let savedRevision = -1;
 let saveTimer, toastTimer, frame;
 let saveQueue = Promise.resolve();
@@ -122,7 +151,12 @@ const swatches = [
   "#F7ECD5",
   "#FFFFFF",
 ];
-const nameKeys = new Set(["layerDefault", "demoWash", "demoLines"]);
+const nameKeys = new Set([
+  "layerDefault",
+  "demoWash",
+  "demoLines",
+  "groupDefault",
+]);
 const titleKeys = new Set(["untitled", "demoTitle"]);
 const titleOf = () => (state.titleKey ? t(state.titleKey) : state.title);
 const nameOf = (layer) =>
@@ -131,7 +165,12 @@ const layerContext = (layer = activeLayer()) =>
   layer.canvas.getContext("2d", { willReadFrequently: true });
 const activeLayer = () =>
   state.layers.find((layer) => layer.id === state.activeId);
-const canEdit = () => !state.busy && !state.drawing && !state.gesture;
+const canEdit = () =>
+  !state.busy && !state.drawing && !state.gesture && !selection.floating;
+const paintTarget = (layer = activeLayer()) =>
+  state.editMask && layer.mask ? layer.mask : layer.canvas;
+const paintContext = (layer = activeLayer()) =>
+  paintTarget(layer).getContext("2d", { willReadFrequently: true });
 
 function icon(name) {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -180,36 +219,77 @@ function makeLayer(
     locked: false,
     opacity: 1,
     blend: "source-over",
+    mask: null,
+    maskEnabled: true,
+    alphaLock: false,
+    clipping: false,
+    groupId: null,
     canvas: surface,
   };
 }
-function composite(target, background = state.background) {
-  target.clearRect(0, 0, state.width, state.height);
-  if (background !== "transparent") {
-    target.fillStyle = background === "warm" ? "#f6efdf" : "#ffffff";
-    target.fillRect(0, 0, state.width, state.height);
-  }
-  for (const layer of state.layers) {
-    if (!layer.visible) continue;
-    target.globalAlpha = layer.opacity;
-    target.globalCompositeOperation = layer.blend;
-    target.drawImage(layer.canvas, 0, 0);
-  }
-  target.globalAlpha = 1;
-  target.globalCompositeOperation = "source-over";
+function composite(target, background = state.background, rect = null) {
+  const preview = selection.floating
+    ? (layer) => {
+        if (
+          selection.floating.target !== layer.canvas &&
+          selection.floating.target !== layer.mask
+        )
+          return null;
+        const image = selection.preview();
+        return effectiveLayer({
+          ...layer,
+          canvas:
+            selection.floating.target === layer.canvas ? image : layer.canvas,
+          mask: selection.floating.target === layer.mask ? image : layer.mask,
+          _maskSignature: null,
+          _masked: null,
+        });
+      }
+    : null;
+  renderScene(
+    target,
+    state.layers,
+    state.groups,
+    state.width,
+    state.height,
+    background,
+    rect,
+    preview,
+  );
 }
-function render() {
+function render(rect = null) {
   if (frame) {
     cancelAnimationFrame(frame);
     frame = null;
   }
-  composite(context);
+  composite(context, state.background, rect);
+  selection.outline($("selection-overlay").getContext("2d"));
 }
-function requestRender() {
+let pendingRegion = null,
+  fullFrame = false;
+function requestRender(rect = null) {
+  if (!rect) fullFrame = true;
+  else if (!pendingRegion) pendingRegion = rect;
+  else {
+    const x = Math.min(rect.x, pendingRegion.x),
+      y = Math.min(rect.y, pendingRegion.y),
+      right = Math.max(
+        rect.x + rect.width,
+        pendingRegion.x + pendingRegion.width,
+      ),
+      bottom = Math.max(
+        rect.y + rect.height,
+        pendingRegion.y + pendingRegion.height,
+      );
+    pendingRegion = { x, y, width: right - x, height: bottom - y };
+  }
   if (!frame)
     frame = requestAnimationFrame(() => {
       frame = null;
-      render();
+      const rect = fullFrame ? null : pendingRegion;
+      pendingRegion = null;
+      fullFrame = false;
+      render(rect);
     });
 }
 function syncTitle() {
@@ -220,6 +300,10 @@ function syncTitle() {
 function syncDocument() {
   canvas.width = state.width;
   canvas.height = state.height;
+  $("selection-overlay").width = state.width;
+  $("selection-overlay").height = state.height;
+  selection.resize(state.width, state.height);
+  state.editMask = false;
   $("canvas-shell").style.width = `${state.width}px`;
   $("canvas-shell").style.height = `${state.height}px`;
   $("canvas-dimensions").textContent = `${state.width} × ${state.height} px`;
@@ -231,7 +315,7 @@ function syncDocument() {
 function snapshot() {
   return {
     format: "drawsketch",
-    version: 2,
+    version: 3,
     id: state.id,
     width: state.width,
     height: state.height,
@@ -239,29 +323,32 @@ function snapshot() {
     titleKey: state.titleKey,
     background: state.background,
     activeId: state.activeId,
-    layers: state.layers.map(
-      ({
-        id,
-        name,
-        nameKey,
-        nameParams,
-        visible,
-        locked,
-        opacity,
-        blend,
-        canvas: surface,
-      }) => ({
+    groups: state.groups.map(
+      ({ id, name, nameKey, nameParams, visible, opacity }) => ({
         id,
         name: nameKey ? t(nameKey, nameParams) : name,
         nameKey,
         nameParams,
         visible,
-        locked,
         opacity,
-        blend,
-        image: surface.toDataURL("image/png"),
       }),
     ),
+    layers: state.layers.map((layer) => ({
+      id: layer.id,
+      name: nameOf(layer),
+      nameKey: layer.nameKey,
+      nameParams: layer.nameParams,
+      visible: layer.visible,
+      locked: layer.locked,
+      opacity: layer.opacity,
+      blend: layer.blend,
+      image: encoded(layer.canvas),
+      mask: layer.mask ? encoded(layer.mask) : null,
+      maskEnabled: layer.maskEnabled,
+      alphaLock: layer.alphaLock,
+      clipping: layer.clipping,
+      groupId: layer.groupId,
+    })),
   };
 }
 function updateHistoryButtons() {
@@ -274,10 +361,10 @@ function scheduleSave() {
   setSaveStatus("saving");
   saveTimer = setTimeout(() => saveLocal(), 400);
 }
-async function saveLocal() {
+async function saveLocal(forceCheckpoint = false) {
   clearTimeout(saveTimer);
   if (!state.layers.length || state.drawing || state.gesture) return false;
-  if (savedRevision === state.revision) return true;
+  if (savedRevision === state.revision && !forceCheckpoint) return true;
   const data = snapshot(),
     revision = state.revision,
     id = state.id;
@@ -294,7 +381,7 @@ async function saveLocal() {
     thumbnail: thumbnail.toDataURL("image/webp", 0.8),
     data,
   };
-  const operation = saveQueue.then(() => saveDocument(record));
+  const operation = saveQueue.then(() => saveDocument(record, forceCheckpoint));
   saveQueue = operation.catch(() => {});
   try {
     await operation;
@@ -314,21 +401,13 @@ async function saveLocal() {
   }
 }
 function commit() {
+  state.groups = state.groups.filter((group) =>
+    state.layers.some((layer) => layer.groupId === group.id),
+  );
   state.revision++;
   state.history.splice(state.historyIndex + 1);
   state.history.push(snapshot());
-  const limit = Math.min(
-    40,
-    Math.max(
-      2,
-      Math.floor(
-        128_000_000 /
-          (state.width * state.height * 4 * Math.max(1, state.layers.length)),
-      ),
-    ),
-  );
-  if (state.history.length > limit)
-    state.history.splice(0, state.history.length - limit);
+  trimHistory(state.history, innerWidth < 900 ? 64_000_000 : 128_000_000);
   state.historyIndex = state.history.length - 1;
   render();
   renderLayers();
@@ -336,22 +415,48 @@ function commit() {
   scheduleSave();
 }
 function validProject(data) {
-  return (
-    data?.format === "drawsketch" &&
-    [1, 2].includes(data.version) &&
-    Number.isInteger(data.width) &&
-    Number.isInteger(data.height) &&
-    data.width >= 64 &&
-    data.height >= 64 &&
-    data.width <= 4096 &&
-    data.height <= 4096 &&
-    data.width * data.height <= MAX_PIXELS &&
-    typeof data.title === "string" &&
-    Array.isArray(data.layers) &&
-    data.layers.length > 0 &&
-    data.layers.length <= MAX_LAYERS &&
-    data.layers.every(
-      (layer) =>
+  if (
+    !(
+      data?.format === "drawsketch" &&
+      [1, 2, 3].includes(data.version) &&
+      Number.isInteger(data.width) &&
+      Number.isInteger(data.height) &&
+      data.width >= 64 &&
+      data.height >= 64 &&
+      data.width <= 8192 &&
+      data.height <= 8192 &&
+      data.width * data.height <= MAX_PIXELS &&
+      typeof data.title === "string" &&
+      Array.isArray(data.layers) &&
+      data.layers.length > 0 &&
+      data.layers.length <= MAX_LAYERS
+    )
+  )
+    return false;
+  const png = (value) =>
+    typeof value === "string" && value.startsWith("data:image/png;base64,");
+  const groups = data.groups || [];
+  if (
+    !Array.isArray(groups) ||
+    groups.length > MAX_LAYERS ||
+    groups.some(
+      (group) =>
+        typeof group.id !== "string" ||
+        typeof group.name !== "string" ||
+        typeof group.visible !== "boolean" ||
+        !Number.isFinite(group.opacity) ||
+        group.opacity < 0 ||
+        group.opacity > 1,
+    ) ||
+    new Set(groups.map((group) => group.id)).size !== groups.length
+  )
+    return false;
+  const groupIds = new Set(groups.map((group) => group.id)),
+    closed = new Set();
+  let previous = null;
+  for (const layer of data.layers) {
+    if (
+      !(
         typeof layer.name === "string" &&
         typeof layer.id === "string" &&
         layer.id.length < 100 &&
@@ -359,9 +464,21 @@ function validProject(data) {
         Number.isFinite(layer.opacity) &&
         layer.opacity >= 0 &&
         layer.opacity <= 1 &&
-        typeof layer.image === "string" &&
-        layer.image.startsWith("data:image/png;base64,"),
+        png(layer.image) &&
+        (!layer.mask || png(layer.mask))
+      )
     )
+      return false;
+    const group = layer.groupId || null;
+    if (group && !groupIds.has(group)) return false;
+    if (group !== previous) {
+      if (previous) closed.add(previous);
+      if (group && closed.has(group)) return false;
+      previous = group;
+    }
+  }
+  return (
+    new Set(data.layers.map((layer) => layer.id)).size === data.layers.length
   );
 }
 async function restore(data) {
@@ -397,6 +514,24 @@ async function restore(data) {
       ? entry.blend
       : "source-over";
     layerContext(layer).drawImage(image, 0, 0);
+    layer.canvas._studioPNG = entry.image;
+    layer.alphaLock = entry.alphaLock === true;
+    layer.clipping = entry.clipping === true;
+    layer.groupId = entry.groupId || null;
+    layer.maskEnabled = entry.maskEnabled !== false;
+    if (entry.mask) {
+      const mask = new Image();
+      mask.src = entry.mask;
+      await mask.decode();
+      if (
+        mask.naturalWidth !== data.width ||
+        mask.naturalHeight !== data.height
+      )
+        throw new Error("Invalid mask dimensions");
+      layer.mask = surface(data.width, data.height);
+      layer.mask.getContext("2d").drawImage(mask, 0, 0);
+      layer.mask._studioPNG = entry.mask;
+    }
     layers.push(layer);
   }
   if (new Set(layers.map((layer) => layer.id)).size !== layers.length)
@@ -413,6 +548,16 @@ async function restore(data) {
     ? data.background
     : "white";
   state.layers = layers;
+  state.groups = (data.groups || []).map((group) => ({
+    id: group.id,
+    name: group.name.slice(0, 80),
+    nameKey: group.nameKey === "groupDefault" ? "groupDefault" : "",
+    nameParams: {
+      n: Math.max(1, Math.min(1000, Number(group.nameParams?.n) || 1)),
+    },
+    visible: group.visible,
+    opacity: group.opacity,
+  }));
   state.activeId = layers.some((layer) => layer.id === data.activeId)
     ? data.activeId
     : layers.at(-1).id;
@@ -439,9 +584,34 @@ async function undo(direction) {
 function renderLayers() {
   const list = $("layer-list");
   list.replaceChildren();
+  let previousGroup = null;
   for (const layer of [...state.layers].reverse()) {
+    if (layer.groupId && layer.groupId !== previousGroup) {
+      const group = state.groups.find((group) => group.id === layer.groupId);
+      if (group) {
+        const heading = document.createElement("div");
+        heading.className = "layer-group-heading";
+        heading.textContent = nameOf(group);
+        const toggle = document.createElement("button");
+        toggle.setAttribute("aria-label", t("groupVisible"));
+        toggle.setAttribute("aria-pressed", String(group.visible));
+        toggle.append(icon(group.visible ? "eye" : "eye-off"));
+        toggle.addEventListener("click", () => {
+          if (canEdit()) {
+            group.visible = !group.visible;
+            commit();
+          }
+        });
+        heading.append(toggle);
+        list.append(heading);
+      }
+    }
+    previousGroup = layer.groupId;
     const row = document.createElement("div");
     row.className = `layer-item${layer.id === state.activeId ? " selected" : ""}${layer.visible ? "" : " hidden-layer"}`;
+    if (layer.groupId) row.classList.add("in-group");
+    if (state.editMask && layer.id === state.activeId)
+      row.classList.add("mask-editing");
     row.setAttribute("role", "listitem");
     row.dataset.layerId = layer.id;
     const thumbnail = document.createElement("canvas");
@@ -452,7 +622,7 @@ function renderLayers() {
     thumbnail
       .getContext("2d")
       .drawImage(
-        layer.canvas,
+        effectiveLayer(layer),
         (80 - state.width * scale) / 2,
         (60 - state.height * scale) / 2,
         state.width * scale,
@@ -496,13 +666,22 @@ function renderLayers() {
     select.addEventListener("click", () => {
       if (!canEdit()) return;
       state.activeId = layer.id;
+      state.editMask = false;
       renderLayers();
       state.revision++;
       scheduleSave();
     });
     select.addEventListener("dblclick", openRename);
     thumbnail.addEventListener("click", () => select.click());
-    row.append(thumbnail, select, visibility);
+    row.append(thumbnail);
+    if (layer.mask) {
+      const mask = document.createElement("img");
+      mask.className = "mask-thumbnail";
+      mask.src = encoded(layer.mask);
+      mask.alt = t("editMask");
+      row.append(mask);
+    }
+    row.append(select, visibility);
     list.append(row);
   }
   const layer = activeLayer();
@@ -521,11 +700,16 @@ function renderLayers() {
   $("merge-layer").disabled =
     index === 0 ||
     layer.blend !== "source-over" ||
-    state.layers[index - 1]?.blend !== "source-over";
+    state.layers[index - 1]?.blend !== "source-over" ||
+    layer.groupId !== state.layers[index - 1]?.groupId ||
+    layer.clipping ||
+    state.layers[index - 1]?.clipping;
+  studio?.syncLayers();
 }
 function addLayer() {
   if (!canEdit() || state.layers.length >= MAX_LAYERS) return;
   const layer = makeLayer("", "layerDefault", { n: state.layers.length + 1 });
+  layer.groupId = activeLayer().groupId;
   state.layers.splice(state.layers.indexOf(activeLayer()) + 1, 0, layer);
   state.activeId = layer.id;
   commit();
@@ -538,16 +722,25 @@ function selectTool(tool) {
   });
   $("active-tool-name").textContent = t(tool === "brush" ? state.brush : tool);
   $("tool-hint").textContent = t(
-    tool === "hand"
-      ? "panHint"
-      : tool === "fill"
-        ? "fillHint"
-        : ["line", "rectangle", "ellipse"].includes(tool)
-          ? "shapeHint"
-          : "freely",
+    ["select", "lasso", "move"].includes(tool)
+      ? "selectionHint"
+      : tool === "hand"
+        ? "panHint"
+        : tool === "fill"
+          ? "fillHint"
+          : ["line", "rectangle", "ellipse"].includes(tool)
+            ? "shapeHint"
+            : "freely",
   );
   $("shape-fill").hidden = !["rectangle", "ellipse"].includes(tool);
-  canvas.style.cursor = tool === "hand" || state.space ? "grab" : "crosshair";
+  canvas.style.cursor =
+    tool === "hand" || state.space
+      ? "grab"
+      : tool === "move"
+        ? "move"
+        : "crosshair";
+  $("selection-actions").hidden =
+    !selection.path && !["select", "lasso", "move"].includes(tool);
 }
 function selectBrush(brush) {
   state.brush = brush;
@@ -573,6 +766,7 @@ function syncBrush() {
     $(id).value = settings.stabilization;
   for (const id of ["stabilization-value", "mobile-stabilization-value"])
     $(id).textContent = `${settings.stabilization}%`;
+  studio?.syncBrush();
   const preview = $("brush-preview").getContext("2d");
   preview.clearRect(0, 0, 240, 75);
   let previous = { x: 20, y: 45, pressure: 0.3 };
@@ -582,6 +776,9 @@ function syncBrush() {
     opacity: state.opacity,
     color: state.color,
     pressure: settings.pressure,
+    texture: settings.texture,
+    textureStrength: settings.textureStrength,
+    tilt: settings.tilt,
     erasing: false,
   };
   for (let step = 1; step <= 45; step++) {
@@ -695,6 +892,8 @@ function point(event) {
     ...screenToCanvas(event.clientX, event.clientY),
     pressure:
       event.pointerType === "pen" ? Math.max(0.05, event.pressure) : 0.65,
+    tiltX: event.tiltX || 0,
+    tiltY: event.tiltY || 0,
   };
 }
 function anchorView(anchor, x, y) {
@@ -723,26 +922,48 @@ function zoomBy(factor, x, y) {
   anchorView(anchor, x, y);
 }
 function brushConfig() {
+  const color = state.editMask ? "#ffffff" : state.color;
+  const rgb = state.color
+    .match(/[a-f\d]{2}/gi)
+    .map((part) => parseInt(part, 16));
   return {
     brush: state.brush,
     size: state.size,
     opacity: state.opacity,
-    color: state.color,
-    erasing: state.tool === "eraser",
+    color,
+    erasing:
+      state.tool === "eraser" ||
+      (state.editMask &&
+        rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722 < 128),
     pressure: settings.pressure,
+    alphaLock: !state.editMask && activeLayer().alphaLock,
+    texture: settings.texture,
+    textureStrength: settings.textureStrength,
+    colorMix: state.editMask ? 0 : settings.colorMix,
+    tilt: settings.tilt,
   };
 }
 function strokeSegment(ctx, from, to, dot = false) {
-  withSymmetry(ctx, state.width, state.height, state.symmetry, () =>
-    brushSegment(ctx, from, to, brushConfig(), dot),
+  if (!state.editMask && activeLayer().alphaLock && state.tool === "eraser")
+    return;
+  selection.clip(ctx, () =>
+    withSymmetry(ctx, state.width, state.height, state.symmetry, () =>
+      brushSegment(ctx, from, to, brushConfig(), dot),
+    ),
   );
+  dirty(ctx.canvas);
 }
 function cancelDrawing() {
+  if (state.drawing?.type === "move") selection.floating = null;
   if (state.drawing?.before) {
-    layerContext(state.drawing.layer).putImageData(state.drawing.before, 0, 0);
+    const ctx = state.drawing.target.getContext("2d");
+    ctx.clearRect(0, 0, state.width, state.height);
+    ctx.drawImage(state.drawing.before, 0, 0);
+    dirty(ctx.canvas);
     render();
   }
   state.drawing = null;
+  studio?.cancelHold();
 }
 function touchMetrics() {
   const [a, b] = [...touches.values()];
@@ -753,25 +974,65 @@ function touchMetrics() {
     angle: Math.atan2(b.y - a.y, b.x - a.x),
   };
 }
-function tapAction(event) {
+async function tapAction(event) {
   const p = point(event);
   if (state.tool === "eyedropper") {
     const x = Math.min(state.width - 1, Math.max(0, Math.floor(p.x))),
-      y = Math.min(state.height - 1, Math.max(0, Math.floor(p.y)));
-    const [r, g, b, a] = context.getImageData(x, y, 1, 1).data;
+      y = Math.min(state.height - 1, Math.max(0, Math.floor(p.y))),
+      [r, g, b, a] = context.getImageData(x, y, 1, 1).data;
     if (a)
       setColor(
-        `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`,
+        "#" +
+          [r, g, b]
+            .map((value) => value.toString(16).padStart(2, "0"))
+            .join(""),
       );
     selectTool("brush");
-  } else if (
-    floodFill(layerContext(), state.width, state.height, p, {
-      color: state.color,
-      opacity: state.opacity,
+    return;
+  }
+  const ctx = paintContext(),
+    target = ctx.canvas,
+    image = ctx.getImageData(0, 0, state.width, state.height),
+    config = brushConfig();
+  state.busy = true;
+  updateHistoryButtons();
+  try {
+    const result = await runFill(image, p, {
+      color: config.color,
+      opacity: state.editMask && config.erasing ? 0 : state.opacity,
       tolerance: settings.tolerance,
-    })
-  )
-    commit();
+    });
+    if (result.changed) {
+      const output = surface(state.width, state.height);
+      output
+        .getContext("2d")
+        .putImageData(
+          new ImageData(
+            new Uint8ClampedArray(result.buffer),
+            state.width,
+            state.height,
+          ),
+          0,
+          0,
+        );
+      selection.clip(ctx, () => {
+        if (!config.alphaLock) ctx.clearRect(0, 0, state.width, state.height);
+        ctx.save();
+        ctx.globalCompositeOperation = config.alphaLock
+          ? "source-atop"
+          : "source-over";
+        ctx.drawImage(output, 0, 0);
+        ctx.restore();
+      });
+      dirty(target);
+      commit();
+    }
+  } catch {
+    toast("operationError");
+  } finally {
+    state.busy = false;
+    updateHistoryButtons();
+  }
 }
 viewport.addEventListener("pointerdown", (event) => {
   if (
@@ -788,9 +1049,13 @@ viewport.addEventListener("pointerdown", (event) => {
     touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (touches.size >= 2) {
       cancelDrawing();
+      studio?.cancelHold();
       const metrics = touchMetrics();
       state.gesture = {
         ...metrics,
+        count: Math.max(touches.size, state.gesture?.count || 0),
+        started: state.gesture?.started || performance.now(),
+        moved: state.gesture?.moved || false,
         zoom: state.zoom,
         rotation: state.rotation,
         anchor: screenToCanvas(metrics.x, metrics.y),
@@ -823,10 +1088,17 @@ viewport.addEventListener("pointerdown", (event) => {
     return;
   }
   if (event.target !== canvas) return;
+  if (studio?.selectionDown(event, point(event))) return;
   const layer = activeLayer();
   if (
     state.tool !== "eyedropper" &&
-    (!layer.visible || layer.locked || layer.opacity === 0)
+    (!layer.visible ||
+      layer.locked ||
+      layer.opacity === 0 ||
+      state.groups.some(
+        (group) =>
+          group.id === layer.groupId && (!group.visible || group.opacity === 0),
+      ))
   ) {
     toast("errorLayer");
     return;
@@ -847,10 +1119,12 @@ viewport.addEventListener("pointerdown", (event) => {
     start: p,
     last: p,
     layer,
-    before: layerContext(layer).getImageData(0, 0, state.width, state.height),
+    target: paintTarget(layer),
+    before: clone(paintTarget(layer)),
   };
+  if (event.pointerType === "touch") studio?.startHold(event);
   if (type === "stroke") {
-    strokeSegment(layerContext(layer), p, p, true);
+    strokeSegment(paintContext(layer), p, p, true);
     requestRender();
   }
 });
@@ -877,6 +1151,13 @@ viewport.addEventListener("pointermove", (event) => {
     touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
   if (state.gesture && touches.size >= 2) {
     const metrics = touchMetrics();
+    if (
+      Math.hypot(metrics.x - state.gesture.x, metrics.y - state.gesture.y) >
+        8 ||
+      Math.abs(metrics.distance - state.gesture.distance) > 8 ||
+      Math.abs(metrics.angle - state.gesture.angle) > 0.09
+    )
+      state.gesture.moved = true;
     state.zoom = Math.max(
       0.025,
       Math.min(
@@ -890,6 +1171,8 @@ viewport.addEventListener("pointermove", (event) => {
     anchorView(state.gesture.anchor, metrics.x, metrics.y);
     return;
   }
+  if (studio?.selectionMove(event, point(event))) return;
+  studio?.moveHold(event);
   const drawing = state.drawing;
   if (!drawing || drawing.pointerId !== event.pointerId) return;
   if (drawing.type === "pan") {
@@ -899,18 +1182,24 @@ viewport.addEventListener("pointermove", (event) => {
     return;
   }
   if (drawing.type === "tap") return;
-  const ctx = layerContext(drawing.layer);
+  const segmentStart = { ...drawing.last };
+  const ctx = drawing.target.getContext("2d");
   if (drawing.type === "shape") {
-    ctx.putImageData(drawing.before, 0, 0);
+    ctx.clearRect(0, 0, state.width, state.height);
+    ctx.drawImage(drawing.before, 0, 0);
     withSymmetry(ctx, state.width, state.height, state.symmetry, () =>
-      drawShape(ctx, drawing.start, point(event), {
-        tool: state.tool,
-        color: state.color,
-        size: state.size,
-        opacity: state.opacity,
-        fill: state.shapeFill,
-        constrain: event.shiftKey,
-      }),
+      selection.clip(ctx, () =>
+        drawShape(ctx, drawing.start, point(event), {
+          tool: state.tool,
+          color: state.color,
+          size: state.size,
+          opacity: state.opacity,
+          fill: state.shapeFill,
+          constrain: event.shiftKey,
+          alphaLock: !state.editMask && drawing.layer.alphaLock,
+          erasing: brushConfig().erasing,
+        }),
+      ),
     );
   } else {
     const samples = event.getCoalescedEvents?.();
@@ -928,15 +1217,39 @@ viewport.addEventListener("pointermove", (event) => {
       drawing.last = p;
     }
   }
-  requestRender();
+  dirty(ctx.canvas);
+  const p = point(event),
+    padding = state.size * 2 + 8;
+  const rect =
+    state.symmetry === "off" && drawing.type === "stroke"
+      ? {
+          x: Math.min(segmentStart.x, p.x) - padding,
+          y: Math.min(segmentStart.y, p.y) - padding,
+          width: Math.abs(segmentStart.x - p.x) + padding * 2,
+          height: Math.abs(segmentStart.y - p.y) + padding * 2,
+        }
+      : null;
+  requestRender(rect);
 });
 function finishPointer(event, cancel = false) {
   touches.delete(event.pointerId);
+  studio?.cancelHold();
   if (event.pointerType === "pen") state.penActive = false;
   if (state.gesture) {
-    if (touches.size < 2) state.gesture = null;
+    if (cancel) state.gesture.cancelled = true;
+    if (touches.size === 0) {
+      const gesture = state.gesture;
+      state.gesture = null;
+      if (
+        !gesture.cancelled &&
+        !gesture.moved &&
+        performance.now() - gesture.started < 320
+      )
+        undo(gesture.count >= 3 ? 1 : -1);
+    }
     return;
   }
+  if (studio?.selectionUp(event, cancel)) return;
   const drawing = state.drawing;
   if (!drawing || drawing.pointerId !== event.pointerId) return;
   if (cancel) {
@@ -946,7 +1259,11 @@ function finishPointer(event, cancel = false) {
     tapAction(event);
   } else {
     if (drawing.type === "stroke" && settings.stabilization)
-      strokeSegment(layerContext(drawing.layer), drawing.last, point(event));
+      strokeSegment(
+        drawing.target.getContext("2d"),
+        drawing.last,
+        point(event),
+      );
     state.drawing = null;
     if (drawing.type !== "pan") commit();
   }
@@ -959,14 +1276,24 @@ viewport.addEventListener("pointerup", (event) => finishPointer(event));
 viewport.addEventListener("pointercancel", (event) =>
   finishPointer(event, true),
 );
-viewport.addEventListener("lostpointercapture", (event) =>
-  finishPointer(event, true),
-);
+viewport.addEventListener("lostpointercapture", (event) => {
+  if (
+    state.drawing?.pointerId === event.pointerId ||
+    touches.has(event.pointerId)
+  )
+    finishPointer(event, true);
+});
 viewport.addEventListener("pointerleave", () => {
   $("brush-cursor").hidden = true;
 });
 
 function download(blob, extension) {
+  if (saveFile.isNative()) {
+    saveFile(blob, `${titleOf()}.${extension}`)
+      .then(() => toast("nativeSaved"))
+      .catch(() => toast("nativeError"));
+    return;
+  }
   const url = URL.createObjectURL(blob),
     link = document.createElement("a");
   link.href = url;
@@ -988,6 +1315,11 @@ function saveProject() {
 }
 function openRename() {
   if (!canEdit()) return;
+  if (studio) studio.renameGroup = null;
+  $("rename-dialog").querySelector("h2").dataset.i18n = "renameHeading";
+  $("rename-form").querySelector(".form-label>span").dataset.i18n =
+    "renameLabel";
+  applyTranslations();
   $("layer-name-input").value = nameOf(activeLayer());
   $("rename-dialog").showModal();
   $("layer-name-input").select();
@@ -1015,6 +1347,7 @@ function refreshLanguage() {
     button.title = t("swatch", { color: button.dataset.color });
     button.setAttribute("aria-label", button.title);
   });
+  studio?.refreshLanguage();
   if (currentToast)
     $("toast").textContent = t(currentToast.key, currentToast.params);
   if ($("gallery-dialog").open) renderGallery();
@@ -1245,6 +1578,11 @@ $("duplicate-layer").addEventListener("click", () => {
   layer.visible = source.visible;
   layer.opacity = source.opacity;
   layer.blend = source.blend;
+  layer.alphaLock = source.alphaLock;
+  layer.clipping = source.clipping;
+  layer.groupId = source.groupId;
+  layer.mask = source.mask ? clone(source.mask) : null;
+  layer.maskEnabled = source.maskEnabled;
   layerContext(layer).drawImage(source.canvas, 0, 0);
   state.layers.splice(state.layers.indexOf(source) + 1, 0, layer);
   state.activeId = layer.id;
@@ -1256,13 +1594,7 @@ for (const [id, offset] of [
 ])
   $(id).addEventListener("click", () => {
     if (!canEdit()) return;
-    const from = state.layers.indexOf(activeLayer()),
-      to = from + offset;
-    if (to < 0 || to >= state.layers.length) return;
-    [state.layers[from], state.layers[to]] = [
-      state.layers[to],
-      state.layers[from],
-    ];
+    reorderLayer(state.layers, activeLayer(), offset);
     commit();
   });
 $("layer-opacity").addEventListener("input", (event) => {
@@ -1293,6 +1625,18 @@ $("rename-layer").addEventListener("click", openRename);
 $("rename-form").addEventListener("submit", (event) => {
   event.preventDefault();
   if (!canEdit()) return;
+  if (studio.renameGroup) {
+    const group = state.groups.find((group) => group.id === studio.renameGroup);
+    if (group) {
+      group.name =
+        $("layer-name-input").value.trim().slice(0, 80) || nameOf(group);
+      group.nameKey = "";
+      commit();
+    }
+    studio.renameGroup = null;
+    $("rename-dialog").close();
+    return;
+  }
   const layer = activeLayer();
   layer.name = $("layer-name-input").value.trim() || nameOf(layer);
   layer.nameKey = "";
@@ -1305,7 +1649,14 @@ $("merge-layer").addEventListener("click", () => {
   const top = activeLayer(),
     index = state.layers.indexOf(top),
     bottom = state.layers[index - 1];
-  if (!bottom || top.blend !== "source-over" || bottom.blend !== "source-over")
+  if (
+    !bottom ||
+    top.blend !== "source-over" ||
+    bottom.blend !== "source-over" ||
+    top.groupId !== bottom.groupId ||
+    top.clipping ||
+    bottom.clipping
+  )
     return;
   if (top.locked || bottom.locked || !top.visible || !bottom.visible) {
     toast("errorMerge");
@@ -1314,10 +1665,11 @@ $("merge-layer").addEventListener("click", () => {
   const merged = makeLayer(nameOf(bottom), bottom.nameKey, bottom.nameParams),
     ctx = layerContext(merged);
   ctx.globalAlpha = bottom.opacity;
-  ctx.drawImage(bottom.canvas, 0, 0);
+  ctx.drawImage(effectiveLayer(bottom), 0, 0);
   ctx.globalAlpha = top.opacity;
-  ctx.drawImage(top.canvas, 0, 0);
+  ctx.drawImage(effectiveLayer(top), 0, 0);
   ctx.globalAlpha = 1;
+  merged.groupId = bottom.groupId;
   state.layers.splice(index - 1, 2, merged);
   state.activeId = merged.id;
   commit();
@@ -1415,8 +1767,8 @@ $("new-form").addEventListener("submit", async (event) => {
     !Number.isInteger(height) ||
     width < 64 ||
     height < 64 ||
-    width > 4096 ||
-    height > 4096 ||
+    width > 8192 ||
+    height > 8192 ||
     width * height > MAX_PIXELS
   ) {
     toast("errorDimensions");
@@ -1431,6 +1783,8 @@ $("new-form").addEventListener("submit", async (event) => {
   state.background = $("new-background").value;
   const layer = makeLayer("", "layerDefault", { n: 1 });
   state.layers = [layer];
+  state.groups = [];
+  state.editMask = false;
   state.activeId = layer.id;
   state.history = [];
   state.historyIndex = -1;
@@ -1453,7 +1807,7 @@ $("image-file").addEventListener("change", async (event) => {
     toast("errorLayerLimit", { n: MAX_LAYERS });
     return;
   }
-  if (file.size > 30_000_000) {
+  if (file.size > 100_000_000) {
     toast("errorFileSize");
     return;
   }
@@ -1497,7 +1851,7 @@ $("project-file").addEventListener("change", async (event) => {
   const file = event.target.files[0];
   event.target.value = "";
   if (!file || !canEdit()) return;
-  if (file.size > 30_000_000) {
+  if (file.size > 100_000_000) {
     toast("errorFileSize");
     return;
   }
@@ -1683,6 +2037,9 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   const tool = {
+    m: "select",
+    q: "lasso",
+    v: "move",
     b: "brush",
     e: "eraser",
     g: "fill",
@@ -1768,7 +2125,12 @@ async function initialize() {
   fitCanvas();
   applyTranslations();
   document.documentElement.dataset.ready = "true";
-  if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  if (
+    import.meta.env.PROD &&
+    !saveFile.isNative() &&
+    !window.drawsketchDesktop &&
+    "serviceWorker" in navigator
+  ) {
     navigator.serviceWorker
       .register(`${import.meta.env.BASE_URL}sw.js`)
       .then(async () => {
@@ -1780,6 +2142,45 @@ async function initialize() {
       );
   }
 }
+studio = initStudio({
+  state,
+  settings,
+  selection,
+  $,
+  t,
+  getLanguage,
+  toast,
+  render,
+  requestRender,
+  commit,
+  restore,
+  snapshot,
+  validProject,
+  canEdit,
+  saveLocal,
+  download,
+  makeLayer,
+  activeLayer,
+  paintTarget,
+  paintContext,
+  selectTool,
+  selectBrush,
+  syncBrush,
+  renderLayers,
+  nameOf,
+  titleOf,
+  saveDocument,
+  persistSettings,
+  cancelDrawing,
+  setColor,
+  undo,
+  syncDocument,
+  fitCanvas,
+  viewport,
+  tapAction,
+  renderGallery,
+  updateHistoryButtons,
+});
 initialize().catch((error) => {
   console.error(error);
   toast("errorStart");

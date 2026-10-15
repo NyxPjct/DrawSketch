@@ -1,0 +1,38 @@
+appId: com.nyxp.drawsketch
+productName: DrawSketch
+asar: true
+directories:
+  output: release
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+  - "!node_modules/**/*"
+artifactName: DrawSketch-${version}-${os}-${arch}.${ext}
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Graphics
+  icon: public/icons/icon-512.png
+  maintainer: NyxPjct
+  syncDesktopName: true
+win:
+  target:
+    - nsis
+    - portable
+  signExecutable: false
+  icon: public/icons/icon-512.png
+nsis:
+  artifactName: DrawSketch-${version}-${os}-${arch}-setup.${ext}
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+portable:
+  artifactName: DrawSketch-${version}-${os}-${arch}-portable.${ext}
+mac:
+  target:
+    - dmg
+    - zip
+  category: public.app-category.graphics-design
+  hardenedRuntime: true
+  icon: public/icons/icon-512.png

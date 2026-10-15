@@ -1,0 +1,11 @@
+{
+  "appId": "com.nyxp.drawsketch",
+  "appName": "DrawSketch",
+  "webDir": "dist",
+  "android": { "backgroundColor": "#0c0c0c", "allowMixedContent": false },
+  "ios": {
+    "backgroundColor": "#0c0c0c",
+    "contentInset": "automatic",
+    "scrollEnabled": false
+  }
+}

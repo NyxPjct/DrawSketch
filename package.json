@@ -1,6 +1,6 @@
 {
   "name": "drawsketch",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -12,11 +12,38 @@
     "preview": "vite preview --host 0.0.0.0 --port 4173 --strictPort",
     "pretest": "npm run build",
     "test": "node --test --test-concurrency=1 tests/*.test.mjs",
-    "screenshots": "node scripts/screenshots.mjs"
+    "screenshots": "node scripts/screenshots.mjs",
+    "predesktop": "npm run build",
+    "desktop": "electron .",
+    "predesktop:pack": "npm run build",
+    "desktop:pack": "electron-builder --publish never",
+    "desktop:unpacked": "electron-builder --dir --publish never",
+    "test:native": "node scripts/desktop-smoke.mjs",
+    "premobile:sync": "npm run build",
+    "mobile:sync": "cap sync",
+    "mobile:android": "node scripts/android-build.mjs",
+    "mobile:ios": "node scripts/ios-build.mjs",
+    "native:icons": "node scripts/generate-native-icons.mjs",
+    "pretest:native": "npm run build",
+    "predesktop:unpacked": "npm run build"
   },
   "devDependencies": {
+    "@capacitor/cli": "8.5.3",
     "@sparticuz/chromium": "153.0.0",
+    "electron": "44.7.2",
+    "electron-builder": "26.15.3",
     "playwright": "1.64.1",
     "vite": "8.3.4"
-  }
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/filesystem": "8.1.5",
+    "@capacitor/ios": "8.5.3",
+    "@capacitor/share": "8.0.3"
+  },
+  "main": "electron/main.cjs",
+  "description": "An orange and black drawing studio for desktop, tablet, and phone.",
+  "author": "NyxPjct",
+  "desktopName": "com.nyxp.drawsketch.desktop"
 }

@@ -9,8 +9,35 @@ export const brushPresets = {
   pixel: { size: 10, opacity: 100 },
 };
 export const blendModes = ["source-over", "multiply", "screen", "overlay"];
-export const MAX_LAYERS = 24;
-export const MAX_PIXELS = 12_000_000;
+export const MAX_LAYERS = 32;
+export const MAX_PIXELS = 16_000_000;
+const textureCache = new Map();
+function texturePattern(ctx, color, texture, strength) {
+  const key = `${color}:${texture}:${strength}`;
+  let tile = textureCache.get(key);
+  if (!tile) {
+    tile = document.createElement("canvas");
+    tile.width = tile.height = 48;
+    const pixels = tile.getContext("2d").createImageData(48, 48),
+      rgb = color.match(/[a-f\d]{2}/gi).map((part) => parseInt(part, 16));
+    for (let y = 0; y < 48; y++)
+      for (let x = 0; x < 48; x++) {
+        const index = (y * 48 + x) * 4;
+        pixels.data.set(rgb, index);
+        const grain =
+          texture === "canvas"
+            ? Math.max(x % 6 === 0 ? 0.95 : 0.1, y % 6 === 0 ? 0.8 : 0.1)
+            : noise(x * 19 + y * 37);
+        pixels.data[index + 3] = Math.round(
+          255 * (1 - (strength / 100) * 0.88 * grain),
+        );
+      }
+    tile.getContext("2d").putImageData(pixels, 0, 0);
+    if (textureCache.size > 64) textureCache.clear();
+    textureCache.set(key, tile);
+  }
+  return ctx.createPattern(tile, "repeat");
+}
 
 function noise(seed) {
   const value = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
@@ -43,16 +70,52 @@ export function withSymmetry(ctx, width, height, axis, draw) {
 }
 
 export function brushSegment(ctx, from, to, config, dot = false) {
-  const { brush, size, opacity, color, erasing } = config;
+  const { brush, size, opacity, erasing } = config;
+  let color = config.color;
+  if (
+    config.colorMix &&
+    !erasing &&
+    to.x >= 0 &&
+    to.y >= 0 &&
+    to.x < ctx.canvas.width &&
+    to.y < ctx.canvas.height
+  ) {
+    const sample = ctx.getImageData(
+      Math.floor(to.x),
+      Math.floor(to.y),
+      1,
+      1,
+    ).data;
+    if (sample[3]) {
+      const amount = ((config.colorMix / 100) * sample[3]) / 255,
+        rgb = color.match(/[a-f\d]{2}/gi).map((part) => parseInt(part, 16));
+      color =
+        "#" +
+        rgb
+          .map((value, index) =>
+            Math.round(value * (1 - amount) + sample[index] * amount)
+              .toString(16)
+              .padStart(2, "0"),
+          )
+          .join("");
+    }
+  }
   const pressure = (from.pressure + to.pressure) / 2;
   const width = Math.max(
     0.3,
     size * (erasing || !config.pressure ? 1 : 0.4 + pressure * 0.9),
   );
   ctx.save();
-  ctx.globalCompositeOperation = erasing ? "destination-out" : "source-over";
-  ctx.strokeStyle = color;
-  ctx.fillStyle = color;
+  ctx.globalCompositeOperation = erasing
+    ? "destination-out"
+    : config.alphaLock
+      ? "source-atop"
+      : "source-over";
+  ctx.strokeStyle =
+    !erasing && config.texture && config.texture !== "none"
+      ? texturePattern(ctx, color, config.texture, config.textureStrength || 0)
+      : color;
+  ctx.fillStyle = ctx.strokeStyle;
   ctx.lineJoin = "round";
   ctx.lineCap = brush === "marker" && !erasing ? "square" : "round";
   ctx.lineWidth = width;
@@ -65,7 +128,31 @@ export function brushSegment(ctx, from, to, config, dot = false) {
     ctx.shadowColor = color;
   }
   const distance = Math.hypot(to.x - from.x, to.y - from.y);
-  if (!erasing && ["airbrush", "charcoal", "pixel"].includes(brush)) {
+  const tilt = config.tilt
+    ? Math.min(85, Math.hypot(to.tiltX || 0, to.tiltY || 0))
+    : 0;
+  if (!erasing && tilt > 2 && !["airbrush", "pixel"].includes(brush)) {
+    const steps = Math.max(
+        1,
+        Math.ceil(distance / Math.max(0.8, width * 0.14)),
+      ),
+      angle = Math.atan2(to.tiltY || 0, to.tiltX || 0);
+    for (let i = 0; i <= steps; i++) {
+      const x = from.x + ((to.x - from.x) * i) / steps,
+        y = from.y + ((to.y - from.y) * i) / steps;
+      ctx.beginPath();
+      ctx.ellipse(
+        x,
+        y,
+        (width / 2) * (1 + tilt / 90),
+        (width / 2) * Math.max(0.3, 1 - tilt / 110),
+        angle,
+        0,
+        Math.PI * 2,
+      );
+      ctx.fill();
+    }
+  } else if (!erasing && ["airbrush", "charcoal", "pixel"].includes(brush)) {
     const spacing =
       brush === "pixel" ? Math.max(1, width * 0.35) : Math.max(1, width * 0.15);
     const steps = Math.max(1, Math.ceil(distance / spacing));
@@ -145,6 +232,11 @@ export function drawShape(ctx, from, destination, config) {
     }
   }
   ctx.save();
+  ctx.globalCompositeOperation = config.erasing
+    ? "destination-out"
+    : config.alphaLock
+      ? "source-atop"
+      : "source-over";
   ctx.strokeStyle = config.color;
   ctx.fillStyle = config.color;
   ctx.lineWidth = config.size;

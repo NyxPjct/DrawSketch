@@ -168,6 +168,21 @@
           <rect x="5" y="3" width="16" height="18" rx="2" />
           <path d="M9 3v18M2 7h5M2 12h5M2 17h5M13 8h4M13 12h4" />
         </symbol>
+        <symbol id="i-select" viewBox="0 0 24 24">
+          <path
+            d="M3 7V3h4m10 0h4v4M3 17v4h4m10 0h4v-4M3 11v2m18-2v2M11 3h2m-2 18h2"
+          />
+        </symbol>
+        <symbol id="i-lasso" viewBox="0 0 24 24">
+          <path
+            d="M9 18c-10-3-8-14 4-14s14 14 0 14H9Zm0 0c-3 1-4 5-1 5s4-4 1-5Z"
+          />
+        </symbol>
+        <symbol id="i-move" viewBox="0 0 24 24">
+          <path
+            d="M12 2v20M2 12h20M8 6l4-4 4 4M8 18l4 4 4-4M6 8l-4 4 4 4M18 8l4 4-4 4"
+          />
+        </symbol>
       </defs>
     </svg>
     <header class="app-header">
@@ -454,6 +469,30 @@
           </div>
           <div class="tool-palette" role="toolbar" data-i18n-aria-label="tools">
             <button
+              data-tool="select"
+              class="tool-button"
+              data-i18n-title="selectTip"
+              data-i18n-aria-label="select"
+              aria-pressed="false"
+            >
+              <svg aria-hidden="true"><use href="#i-select" /></svg></button
+            ><button
+              data-tool="lasso"
+              class="tool-button"
+              data-i18n-title="lassoTip"
+              data-i18n-aria-label="lasso"
+              aria-pressed="false"
+            >
+              <svg aria-hidden="true"><use href="#i-lasso" /></svg></button
+            ><button
+              data-tool="move"
+              class="tool-button"
+              data-i18n-title="moveTip"
+              data-i18n-aria-label="move"
+              aria-pressed="false"
+            >
+              <svg aria-hidden="true"><use href="#i-move" /></svg></button
+            ><button
               data-tool="brush"
               class="tool-button active"
               data-i18n-title="brushTip"
@@ -535,6 +574,11 @@
               height="800"
               data-i18n-aria-label="canvas"
             ></canvas>
+            <canvas
+              id="selection-overlay"
+              class="selection-overlay"
+              aria-hidden="true"
+            ></canvas>
             <div id="paper-grid" class="paper-grid" hidden></div>
             <div
               id="symmetry-guide"
@@ -542,6 +586,28 @@
               data-axis="off"
               aria-hidden="true"
             ></div>
+          </div>
+          <div id="selection-actions" class="selection-actions" hidden>
+            <button
+              id="selection-all"
+              class="button"
+              data-i18n="selectAll"
+            ></button
+            ><button
+              id="selection-transform"
+              class="button"
+              data-i18n="transform"
+            ></button
+            ><button
+              id="selection-erase"
+              class="button"
+              data-i18n="eraseSelection"
+            ></button
+            ><button
+              id="selection-none"
+              class="button"
+              data-i18n="deselect"
+            ></button>
           </div>
           <div id="brush-cursor" class="brush-cursor" hidden></div>
           <div class="canvas-footer-note">
@@ -746,6 +812,73 @@
               <svg aria-hidden="true"><use href="#i-trash" /></svg>
             </button>
           </div>
+          <details class="layer-studio">
+            <summary data-i18n="layerStudio"></summary>
+            <label class="check-row"
+              ><input id="alpha-lock" type="checkbox" /><span
+                data-i18n="alphaLock"
+              ></span></label
+            ><label class="check-row"
+              ><input id="clipping" type="checkbox" /><span
+                data-i18n="clipping"
+              ></span
+            ></label>
+            <div class="mask-actions">
+              <button id="add-mask" class="button" data-i18n="addMask"></button
+              ><button
+                id="edit-mask"
+                class="button"
+                data-i18n="editMask"
+              ></button
+              ><button
+                id="invert-mask"
+                class="button"
+                data-i18n="invertMask"
+              ></button
+              ><button
+                id="remove-mask"
+                class="button"
+                data-i18n="removeMask"
+              ></button>
+            </div>
+            <label class="check-row"
+              ><input id="mask-enabled" type="checkbox" /><span
+                data-i18n="maskOn"
+              ></span
+            ></label>
+            <p class="microcopy" data-i18n="maskHint"></p>
+            <label class="form-label"
+              ><span data-i18n="group"></span
+              ><select id="layer-group">
+                <option value="" data-i18n="ungrouped"></option></select
+            ></label>
+            <div class="group-actions">
+              <button
+                id="new-group"
+                class="button"
+                data-i18n="newGroup"
+              ></button
+              ><button
+                id="rename-group"
+                class="button"
+                data-i18n="renameGroup"
+              ></button>
+            </div>
+            <label class="range-label" for="group-opacity"
+              ><span data-i18n="groupOpacity"></span
+              ><output id="group-opacity-value">100%</output></label
+            ><input
+              id="group-opacity"
+              type="range"
+              min="0"
+              max="100"
+              value="100"
+            /><label class="check-row"
+              ><input id="group-visible" type="checkbox" /><span
+                data-i18n="groupVisible"
+              ></span
+            ></label>
+          </details>
           <label class="paper-info" for="canvas-background"
             ><svg aria-hidden="true"><use href="#i-image" /></svg
             ><span data-i18n="paper" class=""></span></label
@@ -814,7 +947,7 @@
               id="new-width"
               type="number"
               min="64"
-              max="4096"
+              max="8192"
               value="1200"
               required /></label
           ><span>×</span
@@ -824,7 +957,7 @@
               id="new-height"
               type="number"
               min="64"
-              max="4096"
+              max="8192"
               value="800"
               required
           /></label>
@@ -982,7 +1115,44 @@
         min="0"
         max="80"
         value="0"
-      /><button
+      />
+      <details class="brush-studio-extra">
+        <summary data-i18n="paperTexture"></summary>
+        <label class="form-label"
+          ><span data-i18n="paperTexture"></span
+          ><select id="paper-texture">
+            <option value="none" data-i18n="textureNone"></option>
+            <option value="grain" data-i18n="textureGrain"></option>
+            <option
+              value="canvas"
+              data-i18n="textureCanvas"
+            ></option></select></label
+        ><label class="range-label" for="texture-strength"
+          ><span data-i18n="textureStrength"></span
+          ><output id="texture-strength-value">35%</output></label
+        ><input
+          id="texture-strength"
+          type="range"
+          min="0"
+          max="100"
+          value="35"
+        /><label class="range-label" for="color-mix"
+          ><span data-i18n="colorMix"></span
+          ><output id="color-mix-value">0%</output></label
+        ><input id="color-mix" type="range" min="0" max="100" value="0" /><label
+          class="check-row"
+          ><input id="tilt-setting" type="checkbox" /><span
+            data-i18n="tilt"
+          ></span
+        ></label>
+        <p class="microcopy" data-i18n="tiltHint"></p>
+        <label class="form-label"
+          ><span data-i18n="brushName"></span
+          ><input id="custom-brush-name" type="text" /></label
+        ><button id="save-brush" class="button" data-i18n="saveBrush"></button>
+        <div id="custom-brush-list" class="custom-brush-list"></div>
+      </details>
+      <button
         id="brush-dialog-done"
         class="button primary"
         data-i18n="brushDone"
@@ -1019,6 +1189,7 @@
         ><span><span data-i18n="save" class=""></span><kbd>Ctrl S</kbd></span>
       </div>
       <p data-i18n="helpNote" class=""></p>
+      <p class="microcopy" data-i18n="gestureHint"></p>
     </dialog>
     <dialog id="settings-dialog" class="wide-dialog">
       <div class="dialog-heading">
@@ -1098,6 +1269,19 @@
       </div>
       <h2 data-i18n="galleryHeading" class=""></h2>
       <p data-i18n="galleryDescription" class=""></p>
+      <div class="backup-actions">
+        <button id="versions-open" class="button" data-i18n="versions"></button
+        ><button
+          id="export-backup"
+          class="button"
+          data-i18n="exportBackup"
+        ></button
+        ><button
+          id="import-backup"
+          class="button"
+          data-i18n="importBackup"
+        ></button>
+      </div>
       <div id="gallery-list" class="gallery-list"></div>
     </dialog>
     <dialog id="rename-dialog" class="">
@@ -1131,6 +1315,71 @@
         </div>
       </form>
     </dialog>
+    <dialog id="transform-dialog" class="transform-dialog">
+      <div class="dialog-heading">
+        <h2 data-i18n="transformHeading"></h2>
+        <button class="icon-button close-dialog" data-i18n-aria-label="close">
+          <svg aria-hidden="true"><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <div class="transform-fields">
+        <label class="form-label"
+          ><span data-i18n="positionX"></span
+          ><input id="transform-x" type="number" /></label
+        ><label class="form-label"
+          ><span data-i18n="positionY"></span
+          ><input id="transform-y" type="number" /></label
+        ><label class="form-label"
+          ><span data-i18n="transformWidth"></span
+          ><input id="transform-width" type="number" /></label
+        ><label class="form-label"
+          ><span data-i18n="transformHeight"></span
+          ><input id="transform-height" type="number" /></label
+        ><label class="form-label"
+          ><span data-i18n="angle"></span
+          ><input id="transform-angle" type="number"
+        /></label>
+      </div>
+      <label class="check-row"
+        ><input id="transform-flip-x" type="checkbox" /><span
+          data-i18n="flipX"
+        ></span></label
+      ><label class="check-row"
+        ><input id="transform-flip-y" type="checkbox" /><span
+          data-i18n="flipY"
+        ></span></label
+      ><button
+        id="transform-apply"
+        class="button"
+        data-i18n="applyTransform"
+      ></button
+      ><button
+        id="transform-cancel"
+        class="button"
+        data-i18n="cancelTransform"
+      ></button>
+    </dialog>
+    <dialog id="versions-dialog" class="gallery-dialog">
+      <div class="dialog-heading">
+        <h2 data-i18n="versionsHeading"></h2>
+        <button class="icon-button close-dialog" data-i18n-aria-label="close">
+          <svg aria-hidden="true"><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <p data-i18n="versionHint"></p>
+      <button
+        id="checkpoint-now"
+        class="button"
+        data-i18n="checkpoint"
+      ></button>
+      <div id="version-list" class="version-list"></div>
+    </dialog>
+    <input
+      type="file"
+      id="backup-file"
+      accept=".drawsketch-backup,application/json"
+      hidden
+    />
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <script type="module" src="/src/main.js"></script>
   </body>

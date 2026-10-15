@@ -2085,3 +2085,235 @@ body[data-focus="true"] .workspace {
     transition: none !important;
   }
 }
+/* Editing studio */
+.selection-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.selection-actions {
+  position: absolute;
+  z-index: 3;
+  top: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 5px;
+  max-width: 95%;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  box-shadow: var(--shadow);
+}
+.selection-actions .button {
+  font-size: 9px;
+  padding: 8px;
+}
+.tool-palette {
+  max-height: calc(100% - 105px);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.layer-studio,
+.brush-studio-extra {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 15px 0;
+}
+.layer-studio summary,
+.brush-studio-extra summary {
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: var(--accent);
+  cursor: pointer;
+}
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 12px 0;
+}
+.check-row input {
+  accent-color: var(--accent);
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+.mask-actions,
+.group-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 12px;
+}
+.mask-actions .button,
+.group-actions .button {
+  font-size: 8px;
+  padding: 8px 5px;
+  white-space: normal;
+  min-height: 32px;
+}
+.microcopy {
+  font-size: 8px;
+  line-height: 1.8;
+  color: var(--subtle);
+}
+.layer-group-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  font-size: 9px;
+  padding: 8px;
+  color: var(--accent);
+}
+.layer-item.in-group {
+  margin-left: 9px;
+  border-left: 2px solid var(--accent-border);
+}
+.mask-thumbnail {
+  width: 20px;
+  height: 24px;
+  border: 1px solid var(--accent-border);
+  background: var(--surface);
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.mask-editing .mask-thumbnail {
+  outline: 2px solid var(--accent);
+}
+.transform-dialog {
+  width: min(360px, calc(100vw - 24px));
+  margin: 0;
+  left: auto;
+  top: auto;
+  right: 18px;
+  bottom: 50px;
+  padding: 19px;
+}
+.transform-dialog::backdrop {
+  background: #0001;
+  backdrop-filter: none;
+}
+.transform-dialog h2 {
+  font-size: 17px;
+  line-height: 1.4;
+  margin: 0;
+}
+.transform-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.transform-fields .form-label {
+  margin-top: 10px;
+}
+.transform-fields input {
+  padding: 8px;
+}
+.transform-dialog .button.primary {
+  width: 100%;
+  margin-top: 10px;
+}
+.backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 17px;
+}
+.backup-actions .button {
+  font-size: 9px;
+}
+.version-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 18px;
+}
+.version-list button {
+  border: 1px solid var(--line);
+  text-align: left;
+  border-radius: 7px;
+  font-size: 11px;
+  padding: 14px;
+  color: var(--muted);
+}
+.custom-brush-list {
+  margin-top: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.custom-brush-item {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+.custom-brush-item > button:first-child {
+  flex: 1;
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 10px;
+}
+.custom-brush-item > button:last-child {
+  font-size: 9px;
+  color: var(--subtle);
+}
+.mask-actions .button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+@media (max-width: 620px) {
+  .selection-actions {
+    top: 45px;
+    flex-wrap: wrap;
+    width: calc(100% - 20px);
+    justify-content: center;
+  }
+  .selection-actions .button {
+    font-size: 8px;
+    min-height: 32px;
+    padding: 5px 8px;
+  }
+  .layer-studio .button {
+    font-size: 9px;
+    min-height: 38px;
+  }
+  .transform-dialog {
+    right: 12px;
+    bottom: 45px;
+  }
+  .layer-list {
+    max-height: 220px;
+  }
+  .tool-palette {
+    max-height: calc(100% - 105px);
+  }
+}
+@media (max-height: 550px) and (orientation: landscape) {
+  .tool-palette {
+    max-height: none;
+    max-width: calc(100% - 30px);
+    overflow-x: auto;
+  }
+  .selection-actions {
+    top: 8px;
+    left: 12px;
+    transform: none;
+    max-width: calc(100% - 240px);
+  }
+  .transform-dialog {
+    bottom: 8px;
+    top: 8px;
+    max-height: calc(100% - 16px);
+  }
+}

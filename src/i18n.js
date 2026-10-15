@@ -1,3 +1,4 @@
+import { studioMessages } from "./i18n-studio.js";
 export const languages = {
   en: "English",
   "pt-BR": "Português (Brasil)",
@@ -648,6 +649,8 @@ export const messages = {
   },
 };
 
+for (const locale of Object.keys(messages))
+  Object.assign(messages[locale], studioMessages[locale]);
 let locale = "en";
 export function getLanguage() {
   return locale;

@@ -92,6 +92,39 @@ test(
               ).data[0] < 240,
         );
       assert.ok(savedInk);
+      // Load the fill worker for the first time while offline; it must be precached too.
+      await page.locator("#new-document").click();
+      await page.locator("#new-width").fill("600");
+      await page.locator("#new-height").fill("400");
+      await page.locator("#new-form button[type=submit]").click();
+      await page.locator("#new-dialog").waitFor({ state: "hidden" });
+      await page.locator("#hex-input").fill("#FF0000");
+      await page.locator("#hex-input").dispatchEvent("change");
+      await page.locator("[data-tool=fill]").click();
+      await page.locator("#brush-opacity").evaluate((el) => {
+        el.value = "100";
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      const fillBox = await page.locator("#drawing-canvas").boundingBox();
+      await page.mouse.click(
+        fillBox.x + fillBox.width * 0.5,
+        fillBox.y + fillBox.height * 0.7,
+      );
+      await page.waitForFunction(
+        () =>
+          document
+            .getElementById("drawing-canvas")
+            .getContext("2d")
+            .getImageData(20, 20, 1, 1).data[1] === 0,
+      );
+      assert.deepEqual(
+        await page
+          .locator("#drawing-canvas")
+          .evaluate((el) => [
+            ...el.getContext("2d").getImageData(20, 20, 1, 1).data,
+          ]),
+        [255, 0, 0, 255],
+      );
     } finally {
       await browser.close();
       server.stop();
