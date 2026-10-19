@@ -6,3 +6,7 @@ release/
 *.jks
 *.keystore
 __pycache__/
+*.p12
+*.pfx
+*.p8
+*.mobileprovision

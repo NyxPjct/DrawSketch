@@ -1,3 +1,4 @@
+import { nextMessages } from "./i18n-next.js";
 import { studioMessages } from "./i18n-studio.js";
 export const languages = {
   en: "English",
@@ -650,7 +651,7 @@ export const messages = {
 };
 
 for (const locale of Object.keys(messages))
-  Object.assign(messages[locale], studioMessages[locale]);
+  Object.assign(messages[locale], studioMessages[locale], nextMessages[locale]);
 let locale = "en";
 export function getLanguage() {
   return locale;

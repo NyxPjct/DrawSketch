@@ -41,6 +41,7 @@ function openStudio() {
   return window;
 }
 app.whenReady().then(() => {
+  require("./updates.cjs")(app);
   const root = path.join(app.getAppPath(), "dist");
   protocol.handle("studio", async (request) => {
     const url = new URL(request.url);

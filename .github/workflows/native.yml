@@ -44,6 +44,8 @@ jobs:
         run: npm run desktop:pack -- --mac --x64 --arm64
       - if: runner.os == 'Linux'
         run: DRAWSKETCH_DESKTOP_EXECUTABLE=release/linux-unpacked/drawsketch npm run test:native
+      - if: runner.os == 'macOS'
+        run: DRAWSKETCH_DESKTOP_EXECUTABLE="$PWD/release/mac/DrawSketch.app/Contents/MacOS/DrawSketch" npm run test:native
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ runner.os }}
@@ -133,7 +135,7 @@ jobs:
           fail_on_unmatched_files: true
           generate_release_notes: true
           body: |
-            DrawSketch drawing studio. Only successfully built packages are attached; check the workflow for each platform result.
+            DrawSketch 0.4: pressure curves, searchable brush libraries, reference panels, edit-based timelapse, and an organized sketchbook. Only successfully built packages are attached; check the workflow for each platform result.
             Desktop packages are unsigned test builds. The Android APK uses debug signing and is for testing.
             The iOS archive runs in the Xcode simulator; installing on a physical iPhone/iPad requires Apple signing and provisioning.
-            Hardware stylus and palm-rejection certification remains pending; see docs/NATIVE.md.
+            Publisher-signed updates and physical iOS installation require your own signing credentials. Physical stylus and palm-rejection tests remain pending; see docs/NATIVE.md and docs/DISTRIBUTION.md.

@@ -28,6 +28,10 @@
       aria-hidden="true"
     >
       <defs>
+        <symbol id="i-clock" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 6v6l4 2" />
+        </symbol>
         <symbol id="i-pen" viewBox="0 0 24 24">
           <path d="m16 3 5 5-12 12-6 1 1-6L16 3Z M13 6l5 5M4 15l5 5" />
         </symbol>
@@ -410,6 +414,24 @@
             <svg aria-hidden="true"><use href="#i-fill" /></svg></button
           ><span id="tool-hint" class="tool-hint"></span>
           <div class="history-actions">
+            <button
+              id="references-open"
+              class="icon-button"
+              data-i18n-title="references"
+              data-i18n-aria-label="references"
+              aria-controls="reference-panel"
+              aria-expanded="false"
+            >
+              <svg aria-hidden="true"><use href="#i-image" /></svg>
+            </button>
+            <button
+              id="timelapse-open"
+              class="icon-button"
+              data-i18n-title="timelapse"
+              data-i18n-aria-label="timelapse"
+            >
+              <svg aria-hidden="true"><use href="#i-clock" /></svg>
+            </button>
             <button
               id="undo"
               class="icon-button"
@@ -908,6 +930,236 @@
       accept=".drawsketch,application/json"
       hidden
     />
+    <aside
+      id="reference-panel"
+      class="reference-panel"
+      data-i18n-aria-label="references"
+      hidden
+    >
+      <div class="reference-heading">
+        <strong data-i18n="references"></strong
+        ><button
+          id="reference-close"
+          class="icon-button"
+          data-i18n-aria-label="close"
+        >
+          <svg aria-hidden="true"><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <p id="reference-hint" class="microcopy" data-i18n="referenceHint"></p>
+      <div class="workbench-actions">
+        <select
+          id="reference-select"
+          data-i18n-aria-label="referenceImage"
+        ></select
+        ><button
+          id="reference-add"
+          class="button"
+          data-i18n="referenceAdd"
+        ></button>
+      </div>
+      <canvas
+        id="reference-canvas"
+        width="480"
+        height="300"
+        tabindex="0"
+        data-i18n-aria-label="referenceView"
+      ></canvas>
+      <p id="reference-empty" class="microcopy" data-i18n="referenceEmpty"></p>
+      <div class="reference-controls">
+        <label class="range-label" for="reference-zoom"
+          ><span data-i18n="referenceZoom"></span
+          ><output id="reference-zoom-value"></output></label
+        ><input
+          id="reference-zoom"
+          type="range"
+          min="25"
+          max="400"
+          value="100"
+        />
+        <label class="range-label" for="reference-rotate"
+          ><span data-i18n="angle"></span
+          ><output id="reference-rotate-value"></output></label
+        ><input
+          id="reference-rotate"
+          type="range"
+          min="-180"
+          max="180"
+          value="0"
+        />
+        <div class="workbench-actions">
+          <button
+            id="reference-fit"
+            class="button"
+            data-i18n="referenceFit"
+          ></button
+          ><button
+            id="reference-pick"
+            class="button"
+            aria-pressed="false"
+            data-i18n="referencePick"
+          ></button
+          ><button
+            id="reference-remove"
+            class="button"
+            data-i18n="referenceRemove"
+          ></button>
+        </div>
+      </div>
+      <input
+        id="reference-file"
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        hidden
+      />
+    </aside>
+    <dialog id="timelapse-dialog" class="wide-dialog">
+      <div class="dialog-heading">
+        <span class="eyebrow" data-i18n="timelapse"></span
+        ><button class="icon-button close-dialog" data-i18n-aria-label="close">
+          <svg aria-hidden="true"><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <h2 data-i18n="timelapseHeading"></h2>
+      <p data-i18n="timelapseHint"></p>
+      <div class="timelapse-meta">
+        <strong id="timelapse-status" role="status"></strong
+        ><span id="timelapse-count"></span>
+      </div>
+      <canvas
+        id="timelapse-preview"
+        width="480"
+        height="300"
+        data-i18n-aria-label="timelapsePreview"
+      ></canvas>
+      <input
+        id="timelapse-frame"
+        type="range"
+        min="0"
+        max="0"
+        value="0"
+        data-i18n-aria-label="timelapseFrame"
+      />
+      <div class="workbench-actions">
+        <button
+          id="timelapse-start"
+          class="button primary"
+          data-i18n="timelapseStart"
+        ></button
+        ><button
+          id="timelapse-pause"
+          class="button"
+          data-i18n="timelapsePause"
+        ></button
+        ><button
+          id="timelapse-stop"
+          class="button"
+          data-i18n="timelapseStop"
+        ></button>
+      </div>
+      <p
+        id="timelapse-unsupported"
+        class="microcopy"
+        data-i18n="timelapseUnsupported"
+        hidden
+      ></p>
+      <progress
+        id="timelapse-progress"
+        value="0"
+        max="240"
+        data-i18n-aria-label="timelapseExportProgress"
+        hidden
+      ></progress>
+      <button
+        id="timelapse-export"
+        class="button primary"
+        data-i18n="timelapseExport"
+      ></button>
+      <details class="timelapse-reset">
+        <summary data-i18n="timelapseReset"></summary>
+        <label class="check-row"
+          ><input id="timelapse-confirm-reset" type="checkbox" /><span
+            data-i18n="timelapseResetHint"
+          ></span></label
+        ><button
+          id="timelapse-reset"
+          class="button"
+          data-i18n="timelapseReset"
+        ></button>
+      </details>
+    </dialog>
+    <dialog id="diagnostics-dialog" class="wide-dialog">
+      <div class="dialog-heading">
+        <span class="eyebrow" data-i18n="penDiagnostics"></span
+        ><button class="icon-button close-dialog" data-i18n-aria-label="close">
+          <svg aria-hidden="true"><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <h2 data-i18n="diagnosticsHeading"></h2>
+      <p data-i18n="diagnosticsHint"></p>
+      <div class="library-filters">
+        <label class="form-label"
+          ><span data-i18n="diagnosticsDevice"></span
+          ><input id="diagnostics-device" maxlength="100" /></label
+        ><label class="form-label"
+          ><span data-i18n="diagnosticsPen"></span
+          ><input id="diagnostics-pen" maxlength="100"
+        /></label>
+      </div>
+      <canvas
+        id="diagnostics-canvas"
+        width="600"
+        height="280"
+        data-i18n-aria-label="diagnosticsCanvas"
+      ></canvas>
+      <p id="diagnostics-values" class="microcopy" aria-live="polite"></p>
+      <div class="workbench-actions">
+        <button
+          id="diagnostics-reset"
+          class="button"
+          data-i18n="diagnosticsReset"
+        ></button
+        ><button
+          id="diagnostics-export"
+          class="button primary"
+          data-i18n="diagnosticsExport"
+        ></button>
+      </div>
+    </dialog>
+    <dialog id="updates-dialog" class="wide-dialog">
+      <div class="dialog-heading">
+        <span class="eyebrow" data-i18n="appUpdates"></span
+        ><button class="icon-button close-dialog" data-i18n-aria-label="close">
+          <svg aria-hidden="true"><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <h2 data-i18n="updatesHeading"></h2>
+      <p data-i18n="updatesHint"></p>
+      <p id="updates-status" role="status"></p>
+      <label class="check-row"
+        ><input id="updates-auto" type="checkbox" /><span
+          data-i18n="updatesAutomatic"
+        ></span
+      ></label>
+      <div class="workbench-actions">
+        <button
+          id="updates-check"
+          class="button"
+          data-i18n="updatesCheck"
+        ></button
+        ><button
+          id="updates-download"
+          class="button"
+          data-i18n="updatesDownload"
+        ></button
+        ><button
+          id="updates-install"
+          class="button primary"
+          data-i18n="updatesInstall"
+        ></button>
+      </div>
+      <p class="microcopy" data-i18n="updatesSaveHint"></p>
+    </dialog>
     <dialog id="new-dialog" class="">
       <div class="dialog-heading">
         <span data-i18n="newEyebrow" class="eyebrow"></span
@@ -923,6 +1175,19 @@
       <p data-i18n="newDescription" class=""></p>
       <form id="new-form" novalidate>
         <div class="canvas-presets">
+          <button type="button" data-canvas-size="2400,1600">
+            <span data-i18n="templateIllustration"></span
+            ><small>2400 × 1600</small>
+          </button>
+          <button type="button" data-canvas-size="1600,2400">
+            <span data-i18n="templateComic"></span><small>1600 × 2400</small>
+          </button>
+          <button type="button" data-canvas-size="1080,1080">
+            <span data-i18n="templateSocial"></span><small>1080 × 1080</small>
+          </button>
+          <button type="button" data-canvas-size="1080,1920">
+            <span data-i18n="templateStory"></span><small>1080 × 1920</small>
+          </button>
           <button type="button" data-canvas-size="1600,1000">
             <svg aria-hidden="true"><use href="#i-rect" /></svg
             ><span data-i18n="landscape" class=""></span
@@ -997,6 +1262,28 @@
         </button>
       </div>
       <h2 data-i18n="brushHeading" class=""></h2>
+      <div class="library-filters">
+        <label class="form-label"
+          ><span data-i18n="brushSearch"></span
+          ><input id="brush-search" type="search" maxlength="50"
+        /></label>
+        <label class="form-label"
+          ><span data-i18n="category"></span
+          ><select id="brush-category-filter">
+            <option value="all" data-i18n="allBrushes"></option>
+            <option value="sketch" data-i18n="categorySketch"></option>
+            <option value="ink" data-i18n="categoryInk"></option>
+            <option value="paint" data-i18n="categoryPaint"></option>
+            <option value="custom" data-i18n="categoryCustom"></option></select
+        ></label>
+      </div>
+      <canvas
+        id="live-brush-preview"
+        class="live-brush-preview"
+        width="480"
+        height="110"
+        data-i18n-aria-label="liveBrushPreview"
+      ></canvas>
       <div class="mobile-brush-list">
         <button
           class="brush-preset selected"
@@ -1116,6 +1403,35 @@
         max="80"
         value="0"
       />
+      <details class="pressure-studio">
+        <summary data-i18n="pressureCurve"></summary>
+        <p class="microcopy" data-i18n="pressureCurveHint"></p>
+        <canvas
+          id="pressure-curve"
+          width="300"
+          height="110"
+          data-i18n-aria-label="pressureCurve"
+        ></canvas>
+        <label class="form-label"
+          ><span data-i18n="pressureFeel"></span
+          ><select id="pressure-preset">
+            <option value="linear" data-i18n="pressureLinear"></option>
+            <option value="soft" data-i18n="pressureSoft"></option>
+            <option value="firm" data-i18n="pressureFirm"></option></select
+        ></label>
+        <label class="range-label" for="pressure-point-1"
+          ><span data-i18n="pressureLight"></span
+          ><output id="pressure-point-value-1"></output></label
+        ><input id="pressure-point-1" type="range" min="0" max="100" />
+        <label class="range-label" for="pressure-point-2"
+          ><span data-i18n="pressureMedium"></span
+          ><output id="pressure-point-value-2"></output></label
+        ><input id="pressure-point-2" type="range" min="0" max="100" />
+        <label class="range-label" for="pressure-point-3"
+          ><span data-i18n="pressureHeavy"></span
+          ><output id="pressure-point-value-3"></output></label
+        ><input id="pressure-point-3" type="range" min="0" max="100" />
+      </details>
       <details class="brush-studio-extra">
         <summary data-i18n="paperTexture"></summary>
         <label class="form-label"
@@ -1149,9 +1465,38 @@
         <label class="form-label"
           ><span data-i18n="brushName"></span
           ><input id="custom-brush-name" type="text" /></label
+        ><label class="form-label"
+          ><span data-i18n="category"></span
+          ><select id="custom-brush-category">
+            <option value="custom" data-i18n="categoryCustom"></option>
+            <option value="sketch" data-i18n="categorySketch"></option>
+            <option value="ink" data-i18n="categoryInk"></option>
+            <option
+              value="paint"
+              data-i18n="categoryPaint"
+            ></option></select></label
         ><button id="save-brush" class="button" data-i18n="saveBrush"></button>
-        <div id="custom-brush-list" class="custom-brush-list"></div>
       </details>
+      <p id="brush-library-count" class="microcopy" aria-live="polite"></p>
+      <div id="custom-brush-list" class="custom-brush-list"></div>
+      <div class="workbench-actions">
+        <button
+          id="import-brushes"
+          class="button"
+          data-i18n="importBrushes"
+        ></button
+        ><button
+          id="export-brushes"
+          class="button"
+          data-i18n="exportBrushes"
+        ></button>
+      </div>
+      <input
+        id="brushes-file"
+        type="file"
+        accept=".drawsketch-brushes,.json,application/json"
+        hidden
+      />
       <button
         id="brush-dialog-done"
         class="button primary"
@@ -1242,6 +1587,18 @@
         ><span data-i18n="fillTolerance" class=""></span
         ><output id="tolerance-value"></output></label
       ><input id="fill-tolerance" type="range" min="0" max="80" value="24" />
+      <div class="workbench-actions">
+        <button
+          id="diagnostics-open"
+          class="button"
+          data-i18n="penDiagnostics"
+        ></button
+        ><button
+          id="updates-open"
+          class="button"
+          data-i18n="appUpdates"
+        ></button>
+      </div>
       <div class="install-card">
         <svg aria-hidden="true"><use href="#i-spark" /></svg>
         <div>
@@ -1282,7 +1639,40 @@
           data-i18n="importBackup"
         ></button>
       </div>
-      <div id="gallery-list" class="gallery-list"></div>
+      <div class="library-filters">
+        <label class="form-label"
+          ><span data-i18n="searchDrawings"></span
+          ><input id="gallery-search" type="search" maxlength="80"
+        /></label>
+        <label class="form-label"
+          ><span data-i18n="folder"></span
+          ><select id="gallery-folder">
+            <option value="*" data-i18n="allFolders"></option></select
+        ></label>
+        <label class="form-label"
+          ><span data-i18n="sortDrawings"></span
+          ><select id="gallery-sort">
+            <option value="updated" data-i18n="sortUpdated"></option>
+            <option value="name" data-i18n="sortName"></option></select
+        ></label>
+        <button
+          id="gallery-favorites"
+          class="button"
+          aria-pressed="false"
+          data-i18n="favorites"
+        ></button>
+      </div>
+      <div class="library-filters">
+        <label class="form-label"
+          ><span data-i18n="newFolder"></span
+          ><input id="new-folder-name" maxlength="50" /></label
+        ><button
+          id="create-folder"
+          class="button"
+          data-i18n="createFolder"
+        ></button>
+      </div>
+      <div id="gallery-list" class="gallery-list" aria-live="polite"></div>
     </dialog>
     <dialog id="rename-dialog" class="">
       <div class="dialog-heading">

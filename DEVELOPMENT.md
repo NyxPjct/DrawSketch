@@ -42,7 +42,7 @@ English is the base language. Put user-facing text in every catalog, then refere
 
 System document and layer names store translation keys. Custom names are content, so they are never translated. When adding a locale, provide every key and preserve interpolation parameters; the tests check both.
 
-Settings are separate from project files. Theme, language, pressure, finger drawing, stabilization, and fill tolerance are device preferences. Project version 3 additionally stores masks, clipping flags, transparency locks, and contiguous group membership. Version 1 and 2 projects remain readable. IndexedDB version 2 upgrades the existing document store in place and adds a separate checkpoint store.
+Settings are separate from project files. Theme, language, pressure, finger drawing, stabilization, and fill tolerance are device preferences. Project version 3 additionally stores masks, clipping flags, transparency locks, and contiguous group membership. Version 1 and 2 projects remain readable. IndexedDB schema 3 preserves the document/checkpoint stores and adds a per-document workspace store for references and timelapse frames. See docs/WORKBENCH.md for schema-2 migration and storage boundaries.
 
 ## Validation
 
@@ -84,6 +84,16 @@ Raster operations allow 16 million pixels and 32 layers. Dirty-region redraw app
 
 Mask pixels encode visibility in alpha. Black painting erases the mask alpha; white painting restores it. Raw artwork remains independent. Groups must be contiguous in document layer order, and opacity is applied after compositing the group's contents. Clipping uses the nearest non-clipping base within the same group. Merge is restricted to compatible, visible, unlocked Normal layers in the same group without clipping.
 
-Autosaves and checkpoint writes are one transaction. Versions are bounded to 12 per document and restore to a new ID. Backup import validates all project metadata and decodes every layer/mask before writing any record in a single transaction. A backup transfers current canvases only; it does not include checkpoint history, device settings, or brush presets.
+Autosaves and checkpoint writes are one transaction. Versions are bounded to 12 per document and restore to a new ID. Backup import validates all project metadata and decodes every layer/mask before writing any record in a single transaction. A backup transfers current canvases and organization metadata; it does not include checkpoint history, reference images, timelapse frames, device settings, empty folders, or brush presets.
 
 See [docs/NATIVE.md](docs/NATIVE.md) for native build and hardware validation instructions.
+
+## Version 0.4 modules
+
+`brush-model.js` validates and maps pressure curves and preset files. `brush-library.js` owns categorized custom brushes and live previews. `references.js`, `timelapse.js`, and `library.js` own their independent UI/state. Document switches call the reference/timelapse loaders; completed edits capture timelapse frames. Workspace patches use read/modify/write transactions so a reference save cannot overwrite a recording. Document autosaves likewise preserve organization metadata.
+
+`diagnostics.js` is a separate input scratchpad; `updates.js` is the translated renderer UI for the narrow desktop update API in `electron/updates.cjs`. The updater is enabled only by the signed-package build path, never by a renderer preference. Keep Node APIs and update downloads out of the renderer.
+
+`tests/workbench.test.mjs` verifies actual pressure pixels, atomic invalid preset rejection, reference colors and persistence, decodable timelapse video, gallery/autosave metadata, schema-2 migration, phone/tablet geometry, synthetic pen diagnostics, and unavailable updates in a browser. Its Vite server uses port 5183. `__APP_VERSION__` is injected from package.json by Vite.
+
+See [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) for `desktop:signed`, `mobile:android:release`, `mobile:ios:device`, CI signing requirements, and unverified publisher/device steps. Never add signing credentials to source control.

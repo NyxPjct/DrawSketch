@@ -1,4 +1,5 @@
 import "./style.css";
+import { validCurve, defaultCurve } from "./brush-model.js";
 import {
   t,
   setLanguage,
@@ -6,7 +7,7 @@ import {
   applyTranslations,
   messages,
 } from "./i18n.js";
-import { saveDocument, getDocument, listDocuments } from "./storage.js";
+import { saveDocument, getDocument } from "./storage.js";
 import {
   surface,
   clone,
@@ -19,6 +20,11 @@ import {
 } from "./canvas.js";
 import { Selection } from "./selection.js";
 import { trimHistory } from "./history.js";
+import { initReferences } from "./references.js";
+import { initTimelapse } from "./timelapse.js";
+import { initLibrary } from "./library.js";
+import { initDiagnostics } from "./diagnostics.js";
+import { initUpdates } from "./updates.js";
 import { initStudio } from "./studio.js";
 import { saveFile } from "./native.js";
 import { runFill } from "./fill-client.js";
@@ -86,6 +92,9 @@ const settings = {
     ? Math.max(0, Math.min(100, savedSettings.colorMix))
     : 0,
   tilt: savedSettings.tilt !== false,
+  pressureCurve: validCurve(savedSettings.pressureCurve)
+    ? savedSettings.pressureCurve
+    : [...defaultCurve],
 };
 setLanguage(settings.language);
 const portrait = innerWidth < 600;
@@ -125,7 +134,7 @@ const state = {
   revision: 0,
 };
 const selection = new Selection(state.width, state.height);
-let studio;
+let studio, references, timelapse, library, diagnostics, updates;
 let savedRevision = -1;
 let saveTimer, toastTimer, frame;
 let saveQueue = Promise.resolve();
@@ -298,6 +307,8 @@ function syncTitle() {
   document.title = `${titleOf()} — DrawSketch`;
 }
 function syncDocument() {
+  references?.load(state.id);
+  timelapse?.load(state.id);
   canvas.width = state.width;
   canvas.height = state.height;
   $("selection-overlay").width = state.width;
@@ -410,6 +421,7 @@ function commit() {
   trimHistory(state.history, innerWidth < 900 ? 64_000_000 : 128_000_000);
   state.historyIndex = state.history.length - 1;
   render();
+  timelapse?.capture();
   renderLayers();
   updateHistoryButtons();
   scheduleSave();
@@ -572,6 +584,7 @@ async function undo(direction) {
   try {
     await restore(state.history[next]);
     state.historyIndex = next;
+    timelapse?.capture();
     state.revision++;
     scheduleSave();
   } catch {
@@ -776,6 +789,7 @@ function syncBrush() {
     opacity: state.opacity,
     color: state.color,
     pressure: settings.pressure,
+    pressureCurve: settings.pressureCurve,
     texture: settings.texture,
     textureStrength: settings.textureStrength,
     tilt: settings.tilt,
@@ -936,6 +950,7 @@ function brushConfig() {
       (state.editMask &&
         rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722 < 128),
     pressure: settings.pressure,
+    pressureCurve: settings.pressureCurve,
     alphaLock: !state.editMask && activeLayer().alphaLock,
     texture: settings.texture,
     textureStrength: settings.textureStrength,
@@ -1348,6 +1363,10 @@ function refreshLanguage() {
     button.setAttribute("aria-label", button.title);
   });
   studio?.refreshLanguage();
+  references?.refreshLanguage();
+  timelapse?.refreshLanguage();
+  diagnostics?.refreshLanguage();
+  updates?.refreshLanguage();
   if (currentToast)
     $("toast").textContent = t(currentToast.key, currentToast.params);
   if ($("gallery-dialog").open) renderGallery();
@@ -1379,60 +1398,24 @@ function toggleFocus() {
   $("toggle-properties").setAttribute("aria-expanded", "false");
 }
 async function renderGallery() {
-  const list = $("gallery-list");
-  list.replaceChildren();
+  return library?.render();
+}
+async function openRecord(record) {
+  if (!canEdit() || !(await saveLocal())) return;
+  state.busy = true;
   try {
-    const records = await listDocuments();
-    if (!records.length) {
-      const empty = document.createElement("p");
-      empty.className = "gallery-empty";
-      empty.textContent = t("galleryEmpty");
-      list.append(empty);
-    }
-    for (const record of records) {
-      const name = titleKeys.has(record.data.titleKey)
-        ? t(record.data.titleKey)
-        : record.title;
-      const card = document.createElement("button");
-      card.className = "gallery-card";
-      card.setAttribute("aria-label", t("openDrawing", { name }));
-      const image = new Image();
-      image.src = record.thumbnail;
-      image.alt = "";
-      const title = document.createElement("strong");
-      title.textContent = name;
-      const date = document.createElement("small");
-      date.textContent = t("gallerySaved", {
-        date: new Intl.DateTimeFormat(getLanguage(), {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        }).format(record.updatedAt),
-      });
-      card.append(image, title, date);
-      card.addEventListener("click", async () => {
-        if (!canEdit()) return;
-        if (!(await saveLocal())) return;
-        state.busy = true;
-        try {
-          await restore(record.data);
-          state.history = [];
-          state.historyIndex = -1;
-          commit();
-          fitCanvas();
-          $("gallery-dialog").close();
-          toast("projectOpened");
-        } catch {
-          toast("errorProject");
-        } finally {
-          state.busy = false;
-          updateHistoryButtons();
-        }
-      });
-      list.append(card);
-    }
+    await restore(record.data);
+    state.history = [];
+    state.historyIndex = -1;
+    commit();
+    fitCanvas();
+    $("gallery-dialog").close();
+    toast("projectOpened");
   } catch {
-    toast("errorGallery");
+    toast("errorProject");
+  } finally {
+    state.busy = false;
+    updateHistoryButtons();
   }
 }
 
@@ -2142,7 +2125,7 @@ async function initialize() {
       );
   }
 }
-studio = initStudio({
+const studioApi = {
   state,
   settings,
   selection,
@@ -2180,7 +2163,18 @@ studio = initStudio({
   tapAction,
   renderGallery,
   updateHistoryButtons,
-});
+  recordName: (record) =>
+    titleKeys.has(record.data.titleKey)
+      ? t(record.data.titleKey)
+      : record.title,
+  openRecord,
+};
+studio = initStudio(studioApi);
+references = initReferences(studioApi);
+timelapse = initTimelapse(studioApi);
+library = initLibrary(studioApi);
+diagnostics = initDiagnostics(studioApi);
+updates = initUpdates(studioApi);
 initialize().catch((error) => {
   console.error(error);
   toast("errorStart");

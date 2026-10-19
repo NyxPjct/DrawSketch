@@ -1,6 +1,6 @@
 {
   "name": "drawsketch",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -25,7 +25,10 @@
     "mobile:ios": "node scripts/ios-build.mjs",
     "native:icons": "node scripts/generate-native-icons.mjs",
     "pretest:native": "npm run build",
-    "predesktop:unpacked": "npm run build"
+    "predesktop:unpacked": "npm run build",
+    "desktop:signed": "node scripts/desktop-signed.mjs",
+    "mobile:android:release": "node scripts/android-build.mjs --release",
+    "mobile:ios:device": "node scripts/ios-device.mjs"
   },
   "devDependencies": {
     "@capacitor/cli": "8.5.3",
@@ -40,10 +43,12 @@
     "@capacitor/core": "8.5.3",
     "@capacitor/filesystem": "8.1.5",
     "@capacitor/ios": "8.5.3",
-    "@capacitor/share": "8.0.3"
+    "@capacitor/share": "8.0.3",
+    "electron-updater": "6.8.9"
   },
   "main": "electron/main.cjs",
   "description": "An orange and black drawing studio for desktop, tablet, and phone.",
   "author": "NyxPjct",
-  "desktopName": "com.nyxp.drawsketch.desktop"
+  "desktopName": "com.nyxp.drawsketch.desktop",
+  "drawsketchDistribution": "test"
 }

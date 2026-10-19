@@ -2,9 +2,21 @@
 
 **Your studio. Everywhere.**
 
-A personal drawing studio for desktop, tablet, and phone, with an orange and black workspace. Pick up a pen, make a little mess, and find your flow. DrawSketch combines a focused canvas with expressive brushes, non-destructive masks, selections, brush presets, touch gestures, and a sketchbook that stays on your device.
+A personal drawing studio for desktop, tablet, and phone, with an orange and black workspace. Pick up a pen, make a little mess, and find your flow. DrawSketch combines a focused canvas with expressive brushes, non-destructive masks, selections, pressure curves, a reference panel, timelapse videos, touch gestures, and an organized sketchbook that stays on your device.
 
 Built with JavaScript, Canvas 2D, and Vite. No account, API key, backend, or uploaded artwork required.
+
+## New in 0.4.0
+
+- Editable pen-pressure curves with Soft/Linear/Firm starting points and a live stroke preview.
+- Searchable, categorized brush libraries with validated preset import/export.
+- Up to four persistent references per drawing, with zoom, rotation, panning, and a source-color picker.
+- Edit-based timelapse recording, pause/resume, frame preview, and WebM/MP4 export where the runtime supports it.
+- Sketchbook folders, favorites, search, sorting, duplication, and illustration/comic/social canvas presets.
+- A pen diagnostic scratchpad and exportable input report for your own device tests.
+- Signed-distribution build paths and a desktop updater for publisher-signed Windows/macOS releases. Public packages remain test builds; certificates and physical iOS provisioning are still required.
+
+See the [workbench guide](docs/WORKBENCH.md) for controls, limits, storage, and compatibility, and [distribution guide](docs/DISTRIBUTION.md) for signing and updates.
 
 ## A studio for every screen
 
@@ -59,7 +71,7 @@ The app starts in **English**. Open **Settings → Language** to switch to:
 
 The entire application interface updates immediately: panels, menus, dialogs, options, tooltips, accessibility labels, notifications, dates, and automatically generated document and layer names. Your selection survives a reload. Artwork and names you write yourself are preserved.
 
-Translations live in [`src/i18n.js`](src/i18n.js) and [`src/i18n-studio.js`](src/i18n-studio.js). The test suite checks that every language has the same keys and interpolation parameters and verifies the rendered interface in each language.
+Translations live in [`src/i18n.js`](src/i18n.js) , [`src/i18n-studio.js`](src/i18n-studio.js), and [`src/i18n-next.js`](src/i18n-next.js). The test suite checks that every language has the same keys and interpolation parameters and verifies the rendered interface in each language.
 
 ## Run locally
 
@@ -104,11 +116,19 @@ npm run mobile:ios             # Build an iOS simulator app (macOS/Xcode)
 
 See [Native builds and device testing](docs/NATIVE.md) for prerequisites, verified targets, artifact locations, signing, and the hardware test matrix. Desktop builds are unsigned and the Android APK uses debug signing for testing. iPhone/iPad device installation requires Apple provisioning; App Store and Play Store publication is not automatic.
 
+## Explore the workbench
+
+Open the active brush name for live previews, pressure curves, categories, and preset files. Use the image and clock buttons above the canvas for references and timelapse. Sketchbook includes search, folders, favorites, and duplication. In Settings, **Test your pen** opens a scratchpad that leaves your artwork untouched.
+
+![DrawSketch brush studio showing live preview and editable pressure response](docs/screenshots/desktop-brushes.png)
+
+<img src="docs/screenshots/mobile-references.png" width="300" alt="DrawSketch phone with a persistent reference image beside its drawing controls" />
+
 ## Keep your work
 
 The sketchbook uses storage belonging to the current browser, device, and site address. It does not sync between devices. Clearing site data can remove local drawings.
 
-Use **Sketchbook → Export sketchbook backup** to transfer all current canvases together. Import validates every project before adding any canvas and creates new IDs, preserving existing work. Backups include current documents; checkpoint history and device brush/preferences remain local.
+Use **Sketchbook → Export sketchbook backup** to transfer all current canvases together. Import validates every project before adding any canvas and creates new IDs, preserving existing work. Backups include current documents and their folder/favorite metadata. Checkpoint history, references, timelapse frames, brush libraries, empty folders, and device preferences remain local. Export brush libraries and timelapse videos separately.
 
 Use **Sketchbook → Version history** to save a checkpoint or recover one of the latest 12 versions. Restoring opens a separate copy. Automatic checkpoints are written at most once per minute when changes are saved.
 

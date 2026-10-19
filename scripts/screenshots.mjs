@@ -29,6 +29,17 @@ try {
     await page.screenshot({
       path: new URL(`${device.name}.png`, output).pathname,
     });
+    if (device.name === "desktop") {
+      await page.locator("#choose-brush").click();
+      await page.locator("#brush-search").fill("Graphite");
+      await page.locator(".pressure-studio summary").click();
+      await page.locator("#pressure-preset").selectOption("soft");
+      await page.locator("#pressure-curve").scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: new URL("desktop-brushes.png", output).pathname,
+      });
+      await page.locator("#brush-dialog-done").click();
+    }
     if (device.name === "mobile") {
       await page.locator("#toggle-properties").click();
       await page
@@ -40,6 +51,22 @@ try {
         );
       await page.screenshot({
         path: new URL("mobile-layers.png", output).pathname,
+      });
+      await page.locator("#close-properties").click();
+      await page.locator("#references-open").click();
+      const reference = await page
+        .locator("#drawing-canvas")
+        .evaluate((canvas) => canvas.toDataURL("image/png"));
+      await page.locator("#reference-file").setInputFiles({
+        name: "Desert study.png",
+        mimeType: "image/png",
+        buffer: Buffer.from(reference.split(",")[1], "base64"),
+      });
+      await page.waitForFunction(
+        () => !document.getElementById("reference-pick").disabled,
+      );
+      await page.screenshot({
+        path: new URL("mobile-references.png", output).pathname,
       });
     }
     await context.close();

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { _electron } from "playwright";
-import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 const profile = await mkdtemp(join(tmpdir(), "drawsketch-desktop-"));
@@ -39,6 +39,20 @@ try {
   assert.equal(new URL(page.url()).protocol, "studio:");
   assert.equal(await page.evaluate(() => typeof require), "undefined");
   assert.equal(await page.evaluate(() => !!window.drawsketchDesktop), true);
+  const updateStatus = await page.evaluate(() =>
+    window.drawsketchDesktop.updates("status"),
+  );
+  assert.equal(updateStatus.state, "unavailable");
+  assert.equal(
+    updateStatus.version,
+    JSON.parse(
+      await readFile(new URL("../package.json", import.meta.url), "utf8"),
+    ).version,
+  );
+  await assert.rejects(
+    page.evaluate(() => window.drawsketchDesktop.updates("unsupported-action")),
+    /Invalid update action/,
+  );
   await page.locator("#new-document").click();
   await page.locator("#new-name").fill("Desktop smoke");
   await page.locator("#new-width").fill("600");
@@ -96,7 +110,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    "Electron verified: isolated renderer, local app protocol, drawing pixels, persistent recovery, worker fill.",
+    "Electron verified: isolated renderer, local app protocol, drawing pixels, persistent recovery, worker fill, restricted update API.",
   );
 } catch (error) {
   if (application) {

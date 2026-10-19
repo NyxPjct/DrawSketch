@@ -25,6 +25,228 @@
   --shadow: 0 16px 60px #0004;
   --header: 76px;
 }
+[hidden] {
+  display: none !important;
+}
+.library-filters,
+.workbench-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 10px;
+  margin: 14px 0;
+}
+.library-filters .form-label {
+  flex: 1 1 140px;
+  min-width: 0;
+  margin: 0;
+}
+.library-filters select,
+.library-filters input {
+  width: 100%;
+}
+.workbench-actions .button {
+  flex: 1 1 auto;
+}
+.live-brush-preview,
+#pressure-curve,
+#timelapse-preview,
+#diagnostics-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  margin: 14px 0;
+}
+.live-brush-preview {
+  background: #fff9f3;
+}
+.pressure-studio,
+.brush-studio-extra,
+.timelapse-reset {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  margin: 14px 0;
+}
+.pressure-studio summary,
+.timelapse-reset summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--accent);
+}
+#brush-dialog .mobile-brush-list {
+  max-height: 265px;
+  overflow-y: auto;
+}
+#custom-brush-list {
+  max-height: 220px;
+  overflow: auto;
+}
+.reference-panel {
+  position: fixed;
+  top: 140px;
+  right: 325px;
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 190px);
+  overflow: auto;
+  z-index: 25;
+  padding: 14px;
+  border: 1px solid var(--accent-border);
+  border-radius: 15px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+.reference-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.reference-heading strong {
+  font-size: 13px;
+}
+.reference-panel .microcopy {
+  font-size: 11px;
+  line-height: 1.5;
+}
+#reference-select {
+  flex: 1 1 140px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 8px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+#reference-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--bg);
+  border-radius: 8px;
+  touch-action: none;
+}
+.reference-controls .workbench-actions {
+  margin-bottom: 0;
+}
+.reference-controls .button {
+  font-size: 10px;
+  padding: 9px;
+}
+.timelapse-meta {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--accent);
+}
+.is-recording {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+#timelapse-progress {
+  display: block;
+  width: 100%;
+  accent-color: var(--accent);
+  margin: 16px 0;
+}
+.gallery-entry {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.gallery-entry .gallery-card {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+}
+.gallery-entry-actions {
+  padding: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+  border-top: 1px solid var(--line);
+}
+.gallery-entry-actions button {
+  font-size: 11px;
+  padding: 6px;
+}
+.gallery-entry-actions button[aria-pressed="true"],
+#gallery-favorites[aria-pressed="true"] {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.gallery-entry-actions select {
+  width: 100%;
+  min-width: 0;
+  font-size: 11px;
+  padding: 6px;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+#diagnostics-canvas {
+  touch-action: none;
+}
+#diagnostics-values {
+  min-height: 42px;
+}
+@media (max-width: 1199px) {
+  .reference-panel {
+    right: 280px;
+    width: 300px;
+  }
+}
+@media (max-width: 899px) {
+  .reference-panel {
+    top: auto;
+    right: 12px;
+    bottom: 70px;
+    width: 320px;
+    max-height: 55dvh;
+  }
+  .tool-options .tool-hint {
+    display: none;
+  }
+}
+@media (max-width: 599px) {
+  .reference-panel {
+    left: 12px;
+    right: 12px;
+    bottom: 68px;
+    width: auto;
+    max-height: 52dvh;
+  }
+  .reference-panel #reference-canvas {
+    height: 160px;
+  }
+  .history-actions {
+    gap: 0;
+  }
+  .tool-options .history-actions > .separator {
+    display: none;
+  }
+  .tool-options .history-actions > .icon-button {
+    width: 31px;
+    min-width: 31px;
+  }
+  #brush-dialog .mobile-brush-list {
+    max-height: 200px;
+  }
+  .library-filters .form-label {
+    flex-basis: 100%;
+  }
+}
 :root[data-theme="light"] {
   color-scheme: light;
   --bg: #f8f3ee;

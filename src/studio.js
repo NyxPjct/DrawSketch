@@ -1,30 +1,12 @@
 import { surface, clone, dirty, assignGroup } from "./canvas.js";
 import { listDocuments, listVersions, importDocuments } from "./storage.js";
 import { applyTranslations } from "./i18n.js";
-import { brushPresets } from "./engine.js";
+import { initBrushLibrary } from "./brush-library.js";
 
 export function initStudio(api) {
   const { state, settings, selection, $, t } = api;
-  let hold = null,
-    custom = [];
-  try {
-    custom = JSON.parse(localStorage.getItem("drawsketch.brushes.v1") || "[]");
-    if (!Array.isArray(custom)) custom = [];
-    custom = custom
-      .filter(
-        (item) =>
-          typeof item.name === "string" &&
-          item.name.length <= 50 &&
-          Object.hasOwn(brushPresets, item.brush) &&
-          Number.isFinite(item.size) &&
-          item.size >= 1 &&
-          item.size <= 160 &&
-          Number.isFinite(item.opacity) &&
-          item.opacity >= 1 &&
-          item.opacity <= 100,
-      )
-      .slice(0, 32);
-  } catch {}
+  let hold = null;
+  const brushes = initBrushLibrary(api);
   const currentGroup = () =>
     state.groups.find((group) => group.id === api.activeLayer()?.groupId);
   const visibleLayer = () => {
@@ -252,48 +234,6 @@ export function initStudio(api) {
     $("rename-dialog").showModal();
   });
 
-  // Brush parameters and named, persisted presets.
-  function renderCustom() {
-    $("custom-brush-list").replaceChildren();
-    for (const entry of custom) {
-      const row = document.createElement("div");
-      row.className = "custom-brush-item";
-      const use = document.createElement("button");
-      use.textContent = entry.name;
-      use.addEventListener("click", () => {
-        api.selectBrush(entry.brush);
-        state.size = entry.size;
-        state.opacity = entry.opacity;
-        settings.texture = ["none", "grain", "canvas"].includes(entry.texture)
-          ? entry.texture
-          : "none";
-        settings.textureStrength = clamp(entry.textureStrength, 0, 100, 35);
-        settings.colorMix = clamp(entry.colorMix, 0, 100, 0);
-        settings.stabilization = clamp(entry.stabilization, 0, 80, 0);
-        settings.tilt = entry.tilt !== false;
-        api.persistSettings();
-        api.syncBrush();
-      });
-      const remove = document.createElement("button");
-      remove.textContent = "×";
-      remove.setAttribute("aria-label", `${t("deleteBrush")} ${entry.name}`);
-      remove.addEventListener("click", () => {
-        custom = custom.filter((item) => item.id !== entry.id);
-        storeBrushes();
-        renderCustom();
-        api.toast("brushDeleted");
-      });
-      row.append(use, remove);
-      $("custom-brush-list").append(row);
-    }
-  }
-  function storeBrushes() {
-    try {
-      localStorage.setItem("drawsketch.brushes.v1", JSON.stringify(custom));
-    } catch {
-      api.toast("errorSave");
-    }
-  }
   $("paper-texture").addEventListener("change", () => {
     settings.texture = $("paper-texture").value;
     api.persistSettings();
@@ -313,30 +253,6 @@ export function initStudio(api) {
     api.persistSettings();
     api.syncBrush();
   });
-  $("save-brush").addEventListener("click", () => {
-    const name = $("custom-brush-name").value.trim().slice(0, 50);
-    if (!name) {
-      api.toast("errorBrush");
-      return;
-    }
-    if (custom.length >= 32) custom.shift();
-    custom.push({
-      id: crypto.randomUUID(),
-      name,
-      brush: state.brush,
-      size: state.size,
-      opacity: state.opacity,
-      texture: settings.texture,
-      textureStrength: settings.textureStrength,
-      colorMix: settings.colorMix,
-      stabilization: settings.stabilization,
-      tilt: settings.tilt,
-    });
-    storeBrushes();
-    renderCustom();
-    api.toast("brushSaved");
-  });
-
   // Version recovery always opens a copy, so restoring never overwrites the current canvas.
   async function renderVersions() {
     $("version-list").replaceChildren();
@@ -453,6 +369,14 @@ export function initStudio(api) {
         return {
           id,
           title: record.data.title,
+          organization: {
+            folder:
+              typeof record.organization?.folder === "string" &&
+              record.organization.folder !== "*"
+                ? record.organization.folder.trim().slice(0, 50)
+                : "",
+            favorite: record.organization?.favorite === true,
+          },
           updatedAt: Date.now(),
           thumbnail: /^data:image\/(png|webp);base64,/.test(
             record.thumbnail || "",
@@ -511,6 +435,7 @@ export function initStudio(api) {
       $("group-visible").checked = group?.visible ?? true;
     },
     syncBrush() {
+      brushes.sync();
       $("paper-texture").value = settings.texture;
       $("texture-strength").value = settings.textureStrength;
       $("texture-strength-value").textContent = `${settings.textureStrength}%`;
@@ -519,7 +444,7 @@ export function initStudio(api) {
       $("tilt-setting").checked = settings.tilt;
     },
     refreshLanguage() {
-      renderCustom();
+      brushes.refreshLanguage();
       if ($("versions-dialog").open) renderVersions();
     },
     selectionDown(event, p) {
@@ -630,11 +555,5 @@ export function initStudio(api) {
       hold = null;
     },
   };
-  renderCustom();
   return controller;
-}
-function clamp(value, min, max, fallback) {
-  return Number.isFinite(value)
-    ? Math.max(min, Math.min(max, value))
-    : fallback;
 }

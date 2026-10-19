@@ -1,3 +1,4 @@
+import { pressureResponse } from "./brush-model.js";
 export const brushPresets = {
   pencil: { size: 4, opacity: 85 },
   ink: { size: 7, opacity: 100 },
@@ -100,7 +101,10 @@ export function brushSegment(ctx, from, to, config, dot = false) {
           .join("");
     }
   }
-  const pressure = (from.pressure + to.pressure) / 2;
+  const pressure = pressureResponse(
+    (from.pressure + to.pressure) / 2,
+    config.pressureCurve,
+  );
   const width = Math.max(
     0.3,
     size * (erasing || !config.pressure ? 1 : 0.4 + pressure * 0.9),

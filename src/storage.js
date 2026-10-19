@@ -2,7 +2,7 @@ let database;
 function openDatabase() {
   if (database) return database;
   database = new Promise((resolve, reject) => {
-    const request = indexedDB.open("drawsketch-studio", 2);
+    const request = indexedDB.open("drawsketch-studio", 3);
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains("documents"))
@@ -12,6 +12,8 @@ function openDatabase() {
           "documentId",
           "documentId",
         );
+      if (!db.objectStoreNames.contains("workspace"))
+        db.createObjectStore("workspace", { keyPath: "id" });
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => {
@@ -29,7 +31,14 @@ export async function saveDocument(record, forceCheckpoint = false) {
   const db = await openDatabase();
   await new Promise((resolve, reject) => {
     const transaction = db.transaction(["documents", "versions"], "readwrite");
-    transaction.objectStore("documents").put(record);
+    const documents = transaction.objectStore("documents");
+    const existing = documents.get(record.id);
+    existing.onsuccess = () =>
+      documents.put({
+        ...record,
+        organization: existing.result?.organization ||
+          record.organization || { folder: "", favorite: false },
+      });
     const versions = transaction.objectStore("versions"),
       query = versions.index("documentId").getAll(record.id);
     query.onsuccess = () => {
@@ -98,5 +107,63 @@ export async function listDocuments() {
     request.onsuccess = () =>
       resolve(request.result.sort((a, b) => b.updatedAt - a.updatedAt));
     request.onerror = () => reject(request.error);
+  });
+}
+
+// Patch metadata inside the same transaction to preserve concurrent autosaves.
+export async function updateOrganization(id, organization) {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("documents", "readwrite"),
+      store = tx.objectStore("documents");
+    const request = store.get(id);
+    request.onsuccess = () => {
+      if (request.result)
+        store.put({
+          ...request.result,
+          organization: {
+            folder: "",
+            favorite: false,
+            ...request.result.organization,
+            ...(Object.hasOwn(organization, "folder")
+              ? {
+                  folder:
+                    typeof organization.folder === "string"
+                      ? organization.folder.trim().slice(0, 50)
+                      : "",
+                }
+              : {}),
+            ...(Object.hasOwn(organization, "favorite")
+              ? { favorite: organization.favorite === true }
+              : {}),
+          },
+        });
+    };
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}
+export async function getWorkspace(id) {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const request = db
+      .transaction("workspace")
+      .objectStore("workspace")
+      .get(id);
+    request.onsuccess = () => resolve(request.result || { id });
+    request.onerror = () => reject(request.error);
+  });
+}
+export async function patchWorkspace(id, patch) {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("workspace", "readwrite"),
+      store = tx.objectStore("workspace");
+    const request = store.get(id);
+    request.onsuccess = () => store.put({ ...request.result, ...patch, id });
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
   });
 }
