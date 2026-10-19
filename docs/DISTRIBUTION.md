@@ -37,7 +37,7 @@ The script builds an iPhoneOS Release archive, uses Xcode provisioning, and expo
 
 ## GitHub Actions
 
-The manual [Signed distribution workflow](../.github/workflows/signed.yml) builds an existing matching version tag after editor validation. It uses the `signed-distribution` GitHub Environment and uploads artifacts for publisher review. It does not upload to stores or promote them to a public signed update automatically.
+The manual [Signed distribution workflow](../.github/workflows/signed.yml) runs from the `main` workflow definition and builds the existing matching version tag supplied as input after editor validation. Select `main` in the workflow dispatch branch selector. It uses the `signed-distribution` GitHub Environment and uploads artifacts for publisher review. It does not upload to stores or promote them to a public signed update automatically.
 
 Configure these GitHub Environment secrets for the chosen target:
 

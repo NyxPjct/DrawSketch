@@ -98,8 +98,6 @@ jobs:
     environment: signed-distribution
     runs-on: ubuntu-latest
     timeout-minutes: 35
-    env:
-      DRAWSKETCH_NATIVE_CACHE: ${{ runner.temp }}/drawsketch-native
     steps:
       - uses: actions/checkout@v4
         with:
@@ -110,6 +108,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: python3 scripts/setup-android.py
+        env:
+          DRAWSKETCH_NATIVE_CACHE: ${{ runner.temp }}/drawsketch-native
       - name: Prepare publisher keystore
         env:
           KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -124,6 +124,7 @@ jobs:
           JS
       - run: npm run mobile:android:release
         env:
+          DRAWSKETCH_NATIVE_CACHE: ${{ runner.temp }}/drawsketch-native
           DRAWSKETCH_ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
           DRAWSKETCH_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           DRAWSKETCH_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
