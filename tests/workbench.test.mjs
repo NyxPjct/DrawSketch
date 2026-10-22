@@ -566,7 +566,7 @@ test(
             assert.equal(await p.locator("#updates-check").isDisabled(), true);
             assert.match(
               await p.locator("#updates-status").textContent(),
-              /0\.5\.0/,
+              /0\.5\.1/,
             );
             assert.equal(
               await p.evaluate(

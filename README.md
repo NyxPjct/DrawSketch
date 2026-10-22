@@ -6,7 +6,7 @@ A personal drawing studio for desktop, tablet, and phone, with an orange and bla
 
 Built with JavaScript, Canvas 2D, and Vite. No account, API key, backend, or uploaded artwork required.
 
-## New in 0.5.0
+## New in 0.5.1
 
 - A canvas navigator with a rotated viewport outline, drag navigation, and zoom controls.
 - Project palettes, favorite colors, and automatic extraction from reference images or local files.

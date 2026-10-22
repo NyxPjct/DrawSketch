@@ -1,6 +1,6 @@
 # Signed distribution and desktop updates
 
-The public 0.5.0 release continues to provide test packages: Windows/Linux packages without a publisher signature, ad hoc signed macOS packages without notarization, a debug Android APK, and an iOS simulator archive. Publisher certificates and physical-device provisioning are not configured in this repository or cloud environment. The signed build paths below are implemented but cannot be validated end to end without the publisher's accounts and credentials. They do not publish to app stores.
+The public 0.5.1 release continues to provide test packages: Windows/Linux packages without a publisher signature, ad hoc signed macOS packages without notarization, a debug Android APK, and an iOS simulator archive. Publisher certificates and physical-device provisioning are not configured in this repository or cloud environment. The signed build paths below are implemented but cannot be validated end to end without the publisher's accounts and credentials. They do not publish to app stores.
 
 ## Desktop
 
@@ -27,7 +27,7 @@ Configure:
 - `DRAWSKETCH_ANDROID_STORE_PASSWORD`, `DRAWSKETCH_ANDROID_KEY_ALIAS`, `DRAWSKETCH_ANDROID_KEY_PASSWORD`.
 - The SDK/JDK prerequisites from [NATIVE.md](NATIVE.md).
 
-Run `npm run mobile:android:release`. It compiles signed release APK and AAB files into `release/`. The helper refuses to run the release path without the keystore and required variables. Keep this key backed up securely; losing or replacing an application signing identity can prevent upgrades. Release package version code 6 corresponds to version 0.5.0. The debug build remains separate and may use a different key, so export a sketchbook backup before replacing a test installation.
+Run `npm run mobile:android:release`. It compiles signed release APK and AAB files into `release/`. The helper refuses to run the release path without the keystore and required variables. Keep this key backed up securely; losing or replacing an application signing identity can prevent upgrades. Release package version code 7 corresponds to version 0.5.1. The debug build remains separate and may use a different key, so export a sketchbook backup before replacing a test installation.
 
 ## Physical iPhone and iPad
 
