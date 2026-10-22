@@ -135,7 +135,7 @@ jobs:
           fail_on_unmatched_files: true
           generate_release_notes: true
           body: |
-            DrawSketch 0.4: pressure curves, searchable brush libraries, reference panels, edit-based timelapse, and an organized sketchbook. Only successfully built packages are attached; check the workflow for each platform result.
+            DrawSketch 0.5: canvas navigator, portable project palettes, editable layer color, left-handed controls and custom shortcuts, adaptive timelapse, and local performance measurements. Only successfully built packages are attached; check the workflow for each platform result.
             Desktop packages are unsigned test builds. The Android APK uses debug signing and is for testing.
             The iOS archive runs in the Xcode simulator; installing on a physical iPhone/iPad requires Apple signing and provisioning.
             Publisher-signed updates and physical iOS installation require your own signing credentials. Physical stylus and palm-rejection tests remain pending; see docs/NATIVE.md and docs/DISTRIBUTION.md.

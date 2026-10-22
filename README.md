@@ -6,17 +6,16 @@ A personal drawing studio for desktop, tablet, and phone, with an orange and bla
 
 Built with JavaScript, Canvas 2D, and Vite. No account, API key, backend, or uploaded artwork required.
 
-## New in 0.4.0
+## New in 0.5.0
 
-- Editable pen-pressure curves with Soft/Linear/Firm starting points and a live stroke preview.
-- Searchable, categorized brush libraries with validated preset import/export.
-- Up to four persistent references per drawing, with zoom, rotation, panning, and a source-color picker.
-- Edit-based timelapse recording, pause/resume, frame preview, and WebM/MP4 export where the runtime supports it.
-- Sketchbook folders, favorites, search, sorting, duplication, and illustration/comic/social canvas presets.
-- A pen diagnostic scratchpad and exportable input report for your own device tests.
-- Signed-distribution build paths and a desktop updater for publisher-signed Windows/macOS releases. Public packages remain test builds; certificates and physical iOS provisioning are still required.
+- A canvas navigator with a rotated viewport outline, drag navigation, and zoom controls.
+- Project palettes, favorite colors, and automatic extraction from reference images or local files.
+- Editable, non-destructive layer brightness, contrast, hue, and saturation with live Apply/Cancel previews.
+- A left-handed workspace, remappable drawing shortcuts, and up to four configurable quick actions.
+- Adaptive timelapse sampling for long sessions, three recording-quality profiles, storage indicators, and 6/12/24 FPS export.
+- Local performance measurements, memory estimates, and an isolated benchmark that leaves your artwork unchanged.
 
-See the [workbench guide](docs/WORKBENCH.md) for controls, limits, storage, and compatibility, and [distribution guide](docs/DISTRIBUTION.md) for signing and updates.
+Project format 4 stores palettes and color adjustments; versions 1–3 remain readable. The [precision studio guide](docs/PRECISION.md) explains controls, sampling, storage, measurements, and compatibility. Existing brushes, references, masks, groups, backup, offline support, and native packages are retained.
 
 ## A studio for every screen
 
@@ -71,7 +70,7 @@ The app starts in **English**. Open **Settings → Language** to switch to:
 
 The entire application interface updates immediately: panels, menus, dialogs, options, tooltips, accessibility labels, notifications, dates, and automatically generated document and layer names. Your selection survives a reload. Artwork and names you write yourself are preserved.
 
-Translations live in [`src/i18n.js`](src/i18n.js) , [`src/i18n-studio.js`](src/i18n-studio.js), and [`src/i18n-next.js`](src/i18n-next.js). The test suite checks that every language has the same keys and interpolation parameters and verifies the rendered interface in each language.
+Translations live in [`src/i18n.js`](src/i18n.js), [`src/i18n-studio.js`](src/i18n-studio.js), [`src/i18n-next.js`](src/i18n-next.js), and [`src/i18n-v5.js`](src/i18n-v5.js). The test suite checks that every language has the same keys and interpolation parameters and verifies the rendered interface in each language.
 
 ## Run locally
 
@@ -118,9 +117,15 @@ See [Native builds and device testing](docs/NATIVE.md) for prerequisites, verifi
 
 ## Explore the workbench
 
-Open the active brush name for live previews, pressure curves, categories, and preset files. Use the image and clock buttons above the canvas for references and timelapse. Sketchbook includes search, folders, favorites, and duplication. In Settings, **Test your pen** opens a scratchpad that leaves your artwork untouched.
+Use the floating quick-action bar for the navigator, project palettes, and layer color adjustments. Open Settings → Workspace & shortcuts for handedness, remappable keys, quick actions, and performance. Open the active brush name for live previews, pressure curves, categories, and preset files. Use the image and clock buttons above the canvas for references and timelapse. Sketchbook includes search, folders, favorites, and duplication. In Settings, **Test your pen** opens a scratchpad that leaves your artwork untouched.
+
+![DrawSketch canvas navigator showing its rotated viewport outline](docs/screenshots/desktop-navigator.png)
 
 ![DrawSketch brush studio showing live preview and editable pressure response](docs/screenshots/desktop-brushes.png)
+
+<img src="docs/screenshots/mobile-palettes.png" width="300" alt="Project palettes and colors extracted from a reference on a phone" />
+
+![DrawSketch tablet layout configured for left-handed drawing](docs/screenshots/tablet-left-handed.png)
 
 <img src="docs/screenshots/mobile-references.png" width="300" alt="DrawSketch phone with a persistent reference image beside its drawing controls" />
 
@@ -132,7 +137,7 @@ Use **Sketchbook → Export sketchbook backup** to transfer all current canvases
 
 Use **Sketchbook → Version history** to save a checkpoint or recover one of the latest 12 versions. Restoring opens a separate copy. Automatic checkpoints are written at most once per minute when changes are saved.
 
-Use **Save project** to download all your editable layers, masks, and groups as a `.drawsketch` file. Use **Open project** to continue on another device. PNG export gives you the flattened image. If storage is unavailable or full, the app tells you to download your project.
+Use **Save project** to download all your editable layers, masks, groups, palettes, and color-adjustment parameters as a `.drawsketch` file. Use **Open project** to continue on another device. PNG export gives you the flattened image. If storage is unavailable or full, the app tells you to download your project.
 
 ## Keyboard and gestures
 
@@ -165,7 +170,7 @@ npm run build
 npm run screenshots
 ```
 
-The capture script starts its own preview server on port 4175. The test servers use ports 5174, 5176, 5181, and 4176. `npm run test:native` separately verifies the Electron renderer, real drawing, local recovery, and worker fill. See [`DEVELOPMENT.md`](DEVELOPMENT.md) for the architecture and development workflow.
+The capture script starts its own preview server on port 4175. The test servers use ports 5174, 5176, 5181, 5183, 5185, and 4176. `npm run test:native` separately verifies the Electron renderer, real drawing, local recovery, and worker fill. See [`DEVELOPMENT.md`](DEVELOPMENT.md) for the architecture and development workflow.
 
 ## Current limits
 

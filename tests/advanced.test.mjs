@@ -220,7 +220,7 @@ test(
           assert.deepEqual(await pixel(p, 250, 140), white);
           assert.deepEqual(await pixel(p, 190, 140), red);
           const project = await download(p, "#save-project");
-          assert.equal(project.version, 3);
+          assert.equal(project.version, 4);
           assert.ok(project.layers[0].mask);
           const raw = await p.evaluate(async (data) => {
             const im = new Image();

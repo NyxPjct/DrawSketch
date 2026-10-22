@@ -1,4 +1,6 @@
-# DrawSketch 0.4 workbench
+# DrawSketch workbench
+
+Version 0.5 adds the [precision studio](PRECISION.md), project format 4, and adaptive recording.
 
 ## Brushes
 
@@ -20,9 +22,9 @@ References live in IndexedDB beside their drawing ID. They do not create artwork
 
 The clock button opens the recording controls. **Start recording** captures the current canvas. Further frames record completed edits, including completed strokes, layer changes, and undo/redo. This is an edit-based timelapse, not screen capture: cursor motion, dialogs, and intermediate points inside a stroke are excluded. Paused edits are skipped; resuming records the current result before continuing. Stop keeps the existing recording. Use the frame slider to inspect it.
 
-Each drawing holds up to 240 JPEG frames, a maximum longest side of 768 pixels, and a 32 MB encoded-string budget. Reaching a limit pauses recording and shows a message; existing frames are kept. The app persists recordings in IndexedDB and always reopens them paused. Transparent artwork is composited on white for video. Storage errors pause recording and ask you to export before closing. New document IDs have independent recordings.
+Each drawing retains up to 240 JPEG frames and an estimated 32 MB encoded-string budget. Quality profiles select a longest side of 512, 768, or 1024 pixels. Adaptive sampling compacts older intermediate frames to continue longer sessions while retaining the first and latest result; see PRECISION.md for details. The app persists recordings in IndexedDB and always reopens them paused. Transparent artwork is composited on white for video. Storage errors pause recording and ask you to export before closing. New document IDs have independent recordings.
 
-**Export video** encodes frames at 12 frames per second with no audio. It uses the runtime's supported MediaRecorder format, preferring WebM VP9/VP8, then MP4, then generic WebM. Export runs at playback speed and shows progress. Native mobile uses the system share sheet. A runtime without canvas recording can retain and preview frames but disables video export. Test export on your target browser/WebView; format support varies.
+**Export video** encodes frames at 6, 12, or 24 frames per second with no audio. It uses the runtime's supported MediaRecorder format, preferring WebM VP9/VP8, then MP4, then generic WebM. Export runs at playback speed and shows progress. Native mobile uses the system share sheet. A runtime without canvas recording can retain and preview frames but disables video export. Test export on your target browser/WebView; format support varies.
 
 Clearing a recording requires an explicit checkbox. It removes frames only; your layers and history are kept.
 
@@ -42,4 +44,4 @@ Synthetic Chromium pen events verify the reporting and pressure path. A report i
 
 ## Storage compatibility
 
-IndexedDB schema 3 upgrades the existing `documents` and `versions` stores in place and adds a `workspace` store for per-document references and recordings. Project format stays at version 3; project versions 1 and 2 remain readable. Browser tests cover an actual schema-2 database migration without replacing the saved drawing.
+IndexedDB schema 3 upgrades the existing `documents` and `versions` stores in place and adds a `workspace` store for per-document references and recordings. Project format 4 adds palettes and adjustment parameters; project versions 1, 2, and 3 remain readable. Browser tests cover an actual schema-2 database migration without replacing the saved drawing.

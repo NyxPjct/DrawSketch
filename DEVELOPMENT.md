@@ -42,7 +42,7 @@ English is the base language. Put user-facing text in every catalog, then refere
 
 System document and layer names store translation keys. Custom names are content, so they are never translated. When adding a locale, provide every key and preserve interpolation parameters; the tests check both.
 
-Settings are separate from project files. Theme, language, pressure, finger drawing, stabilization, and fill tolerance are device preferences. Project version 3 additionally stores masks, clipping flags, transparency locks, and contiguous group membership. Version 1 and 2 projects remain readable. IndexedDB schema 3 preserves the document/checkpoint stores and adds a per-document workspace store for references and timelapse frames. See docs/WORKBENCH.md for schema-2 migration and storage boundaries.
+Settings are separate from project files. Theme, language, pressure, finger drawing, stabilization, and fill tolerance are device preferences. Project format 4 adds project palettes, favorite colors, and non-destructive layer adjustment parameters to the existing masks/groups. Versions 1–3 remain readable. IndexedDB schema 3 preserves the document/checkpoint stores and adds a per-document workspace store for references and timelapse frames. See docs/WORKBENCH.md for schema-2 migration and storage boundaries.
 
 ## Validation
 
@@ -97,3 +97,11 @@ See [docs/NATIVE.md](docs/NATIVE.md) for native build and hardware validation in
 `tests/workbench.test.mjs` verifies actual pressure pixels, atomic invalid preset rejection, reference colors and persistence, decodable timelapse video, gallery/autosave metadata, schema-2 migration, phone/tablet geometry, synthetic pen diagnostics, and unavailable updates in a browser. Its Vite server uses port 5183. `__APP_VERSION__` is injected from package.json by Vite.
 
 See [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md) for `desktop:signed`, `mobile:android:release`, `mobile:ios:device`, CI signing requirements, and unverified publisher/device steps. Never add signing credentials to source control.
+
+## Version 0.5 precision studio
+
+`navigator.js` maps a cached overview to the actual zoom/rotation transform. `color-model.js` validates palettes and color parameters and provides RGB extraction and a Canvas-filter fallback. `adjustments.js` isolates previews from committed state; `canvas.js` caches adjustments, masks, clipping, and groups by their dependencies. Palette content lives in project format 4 and remains undoable. `palettes.js` owns the translated palette UI.
+
+`controls-model.js` validates persisted shortcut/quick-action preferences; `comfort.js` updates controls, handedness and hints. `metrics.js` keeps bounded software-timing samples, estimates selected allocations, and benchmarks a detached canvas. `recording-model.js` bounds the adaptive recording journal; `timelapse.js` coalesces writes and flushes pending final frames. See [docs/PRECISION.md](docs/PRECISION.md) for the user and compatibility contracts.
+
+`tests/precision.test.mjs` uses port 5185. It checks raw pixels, export/import, preview/autosave isolation, cache invalidation including canceled group previews, rotated navigation, phone/tablet controls, input-safe remapped keys, independent benchmarks, and legacy-recording compaction. Existing format assertions now expect version 4; legacy fixtures still verify versions 1–3 remain readable. Do not edit app modules while browser tests are running: Vite HMR would invalidate their results.

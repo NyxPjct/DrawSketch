@@ -30,6 +30,17 @@ try {
       path: new URL(`${device.name}.png`, output).pathname,
     });
     if (device.name === "desktop") {
+      await page.locator('[data-quick-action="navigator"]').click();
+      await page.locator("#navigator-zoom").evaluate((el) => {
+        el.value = "180";
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      await page.locator("#rotate-canvas").click();
+      await page.screenshot({
+        path: new URL("desktop-navigator.png", output).pathname,
+      });
+      await page.locator("#navigator-close").click();
+      await page.locator("#fit-canvas").click();
       await page.locator("#choose-brush").click();
       await page.locator("#brush-search").fill("Graphite");
       await page.locator(".pressure-studio summary").click();
@@ -39,6 +50,15 @@ try {
         path: new URL("desktop-brushes.png", output).pathname,
       });
       await page.locator("#brush-dialog-done").click();
+    }
+    if (device.name === "tablet") {
+      await page.locator("#settings-button").click();
+      await page.locator("#workspace-open").click();
+      await page.locator("#handedness").selectOption("left");
+      await page.locator("#comfort-dialog .close-dialog").first().click();
+      await page.screenshot({
+        path: new URL("tablet-left-handed.png", output).pathname,
+      });
     }
     if (device.name === "mobile") {
       await page.locator("#toggle-properties").click();
@@ -67,6 +87,14 @@ try {
       );
       await page.screenshot({
         path: new URL("mobile-references.png", output).pathname,
+      });
+      await page.locator("#reference-close").click();
+      await page.locator('[data-quick-action="palettes"]').click();
+      await page.locator("#palette-name").fill("Desert study");
+      await page.locator("#palette-create").click();
+      await page.locator("#palette-from-reference").click();
+      await page.screenshot({
+        path: new URL("mobile-palettes.png", output).pathname,
       });
     }
     await context.close();

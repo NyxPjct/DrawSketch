@@ -471,7 +471,31 @@ test(
             [1600, 1050],
           ]) {
             await page.setViewportSize({ width, height });
-            await page.locator("#fit-canvas").click();
+            for (const handedness of ["right", "left"]) {
+              await page.evaluate((value) => {
+                document.body.dataset.handedness = value;
+              }, handedness);
+              await page.locator("#fit-canvas").click();
+              const controlsOverlap = await page.evaluate(() => {
+                const quick = document
+                    .getElementById("quick-actions")
+                    .getBoundingClientRect(),
+                  zoom = document
+                    .querySelector(".zoom-controls")
+                    .getBoundingClientRect();
+                return (
+                  quick.left < zoom.right &&
+                  quick.right > zoom.left &&
+                  quick.top < zoom.bottom &&
+                  quick.bottom > zoom.top
+                );
+              });
+              assert.equal(
+                controlsOverlap,
+                false,
+                `${width} × ${height}, ${handedness}`,
+              );
+            }
             assert.ok(
               await page.evaluate(
                 () => document.documentElement.scrollWidth <= innerWidth,

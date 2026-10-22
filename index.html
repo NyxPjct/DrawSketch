@@ -28,6 +28,20 @@
       aria-hidden="true"
     >
       <defs>
+        <symbol id="i-color" viewBox="0 0 24 24">
+          <path
+            d="M12 3a9 9 0 1 0 0 18h2a2 2 0 0 0 0-4h-1a2 2 0 0 1 0-4h3a5 5 0 0 0 5-5c0-3-4-5-9-5Z"
+          />
+          <circle cx="7" cy="9" r="1" />
+          <circle cx="11" cy="6" r="1" />
+          <circle cx="16" cy="8" r="1" />
+        </symbol>
+        <symbol id="i-sun" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="4" />
+          <path
+            d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2"
+          />
+        </symbol>
         <symbol id="i-clock" viewBox="0 0 24 24">
           <circle cx="12" cy="12" r="9" />
           <path d="M12 6v6l4 2" />
@@ -484,6 +498,12 @@
             </button>
           </div>
         </div>
+        <div
+          id="quick-actions"
+          class="quick-actions"
+          role="toolbar"
+          data-i18n-aria-label="quickActions"
+        ></div>
         <div id="canvas-viewport" class="canvas-viewport">
           <div class="canvas-caption">
             <span class="caption-line"></span><span id="canvas-caption"></span
@@ -931,6 +951,275 @@
       hidden
     />
     <aside
+      id="navigator-panel"
+      class="navigator-panel"
+      data-i18n-aria-label="navigator"
+      hidden
+    >
+      <div class="reference-heading">
+        <strong data-i18n="navigator"></strong
+        ><button
+          id="navigator-close"
+          class="icon-button"
+          data-i18n-aria-label="close"
+        >
+          <svg aria-hidden="true"><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <canvas
+        id="navigator-canvas"
+        width="280"
+        height="180"
+        tabindex="0"
+        data-i18n-aria-label="navigatorView"
+      ></canvas>
+      <label class="range-label" for="navigator-zoom"
+        ><span data-i18n="zoom"></span
+        ><output id="navigator-zoom-value"></output></label
+      ><input id="navigator-zoom" type="range" min="3" max="600" step="1" />
+      <div class="workbench-actions">
+        <span id="navigator-rotation"></span
+        ><button
+          id="navigator-fit"
+          class="button"
+          data-i18n="fitCanvas"
+        ></button>
+      </div>
+      <p class="microcopy" data-i18n="navigatorHint"></p>
+    </aside>
+    <dialog id="palettes-dialog" class="wide-dialog">
+      <div class="dialog-heading">
+        <span class="eyebrow" data-i18n="projectPalettes"></span
+        ><button class="icon-button close-dialog" data-i18n-aria-label="close">
+          <svg aria-hidden="true"><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <h2 data-i18n="paletteHeading"></h2>
+      <p data-i18n="paletteHint"></p>
+      <div class="library-filters">
+        <label class="form-label"
+          ><span data-i18n="paletteChoose"></span
+          ><select id="palette-select"></select></label
+        ><label class="form-label"
+          ><span data-i18n="paletteName"></span
+          ><input id="palette-name" maxlength="50"
+        /></label>
+      </div>
+      <div class="workbench-actions">
+        <button
+          id="palette-create"
+          class="button"
+          data-i18n="paletteCreate"
+        ></button
+        ><button
+          id="palette-rename"
+          class="button"
+          data-i18n="paletteRename"
+        ></button
+        ><button
+          id="palette-delete"
+          class="button"
+          data-i18n="paletteDelete"
+        ></button>
+      </div>
+      <label class="check-row"
+        ><input id="palette-favorites-only" type="checkbox" /><span
+          data-i18n="paletteFavorites"
+        ></span
+      ></label>
+      <div id="palette-colors" class="project-swatches"></div>
+      <p id="palette-empty" class="microcopy" data-i18n="paletteEmpty"></p>
+      <p id="palette-count" class="microcopy" aria-live="polite"></p>
+      <div class="workbench-actions">
+        <button
+          id="palette-add-color"
+          class="button primary"
+          data-i18n="paletteAddColor"
+        ></button
+        ><button
+          id="palette-remove-color"
+          class="button"
+          data-i18n="paletteRemoveColor"
+        ></button
+        ><button
+          id="palette-star"
+          class="button"
+          aria-pressed="false"
+          data-i18n="paletteFavoriteColor"
+        ></button>
+      </div>
+      <div class="workbench-actions">
+        <button
+          id="palette-from-reference"
+          class="button"
+          data-i18n="paletteFromReference"
+        ></button
+        ><button
+          id="palette-from-image"
+          class="button"
+          data-i18n="paletteFromImage"
+        ></button>
+      </div>
+      <input
+        id="palette-file"
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        hidden
+      />
+      <p class="microcopy" data-i18n="paletteUndoHint"></p>
+    </dialog>
+    <dialog id="adjustments-dialog" class="wide-dialog">
+      <div class="dialog-heading">
+        <span class="eyebrow" data-i18n="layerAdjustments"></span
+        ><button class="icon-button close-dialog" data-i18n-aria-label="close">
+          <svg aria-hidden="true"><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <h2 data-i18n="adjustmentsHeading"></h2>
+      <p data-i18n="adjustmentsHint"></p>
+      <strong id="adjust-layer-name"></strong
+      ><label class="range-label" for="adjust-brightness"
+        ><span data-i18n="adjustBrightness"></span
+        ><output id="adjust-brightness-value"></output></label
+      ><input
+        id="adjust-brightness"
+        type="range"
+        min="-100"
+        max="100"
+        value="0"
+      /><label class="range-label" for="adjust-contrast"
+        ><span data-i18n="adjustContrast"></span
+        ><output id="adjust-contrast-value"></output></label
+      ><input
+        id="adjust-contrast"
+        type="range"
+        min="-100"
+        max="100"
+        value="0"
+      /><label class="range-label" for="adjust-hue"
+        ><span data-i18n="adjustHue"></span
+        ><output id="adjust-hue-value"></output></label
+      ><input
+        id="adjust-hue"
+        type="range"
+        min="-180"
+        max="180"
+        value="0"
+      /><label class="range-label" for="adjust-saturation"
+        ><span data-i18n="adjustSaturation"></span
+        ><output id="adjust-saturation-value"></output></label
+      ><input
+        id="adjust-saturation"
+        type="range"
+        min="-100"
+        max="100"
+        value="0"
+      />
+      <div class="dialog-actions">
+        <button
+          id="adjust-reset"
+          class="button"
+          data-i18n="adjustReset"
+        ></button
+        ><button
+          id="adjust-cancel"
+          class="button close-dialog"
+          data-i18n="cancel"
+        ></button
+        ><button
+          id="adjust-apply"
+          class="button primary"
+          data-i18n="adjustApply"
+        ></button>
+      </div>
+    </dialog>
+    <dialog id="comfort-dialog" class="wide-dialog">
+      <div class="dialog-heading">
+        <span class="eyebrow" data-i18n="workspaceSettings"></span
+        ><button class="icon-button close-dialog" data-i18n-aria-label="close">
+          <svg aria-hidden="true"><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <h2 data-i18n="comfortHeading"></h2>
+      <p data-i18n="comfortHint"></p>
+      <div class="workbench-actions">
+        <button
+          id="workspace-navigator"
+          class="button"
+          data-i18n="navigator"
+        ></button
+        ><button
+          id="workspace-palettes"
+          class="button"
+          data-i18n="projectPalettes"
+        ></button
+        ><button
+          id="workspace-adjustments"
+          class="button"
+          data-i18n="layerAdjustments"
+        ></button
+        ><button
+          id="workspace-performance"
+          class="button"
+          data-i18n="performance"
+        ></button>
+      </div>
+      <label class="form-label"
+        ><span data-i18n="handedness"></span
+        ><select id="handedness">
+          <option value="right" data-i18n="rightHanded"></option>
+          <option value="left" data-i18n="leftHanded"></option></select
+      ></label>
+      <details open>
+        <summary data-i18n="quickActions"></summary>
+        <div id="quick-action-settings" class="quick-action-settings"></div>
+      </details>
+      <details>
+        <summary data-i18n="keyboardShortcuts"></summary>
+        <p class="microcopy" data-i18n="shortcutsHint"></p>
+        <div id="shortcut-list"></div>
+      </details>
+      <div class="dialog-actions">
+        <button
+          id="controls-reset"
+          class="button"
+          data-i18n="controlsReset"
+        ></button
+        ><button class="button primary close-dialog" data-i18n="done"></button>
+      </div>
+    </dialog>
+    <dialog id="performance-dialog" class="wide-dialog">
+      <div class="dialog-heading">
+        <span class="eyebrow" data-i18n="performance"></span
+        ><button class="icon-button close-dialog" data-i18n-aria-label="close">
+          <svg aria-hidden="true"><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <h2 data-i18n="performanceHeading"></h2>
+      <p data-i18n="performanceHint"></p>
+      <div id="performance-list"></div>
+      <p id="performance-memory" class="microcopy"></p>
+      <p class="microcopy" data-i18n="performanceMemoryHint"></p>
+      <div class="workbench-actions">
+        <button
+          id="performance-reset"
+          class="button"
+          data-i18n="metricsReset"
+        ></button
+        ><button
+          id="benchmark-run"
+          class="button"
+          data-i18n="benchmarkRun"
+        ></button
+        ><button
+          id="performance-export"
+          class="button primary"
+          data-i18n="performanceExport"
+        ></button>
+      </div>
+      <p id="benchmark-result" class="microcopy" role="status"></p>
+    </dialog>
+    <aside
       id="reference-panel"
       class="reference-panel"
       data-i18n-aria-label="references"
@@ -1022,6 +1311,23 @@
       </div>
       <h2 data-i18n="timelapseHeading"></h2>
       <p data-i18n="timelapseHint"></p>
+      <div class="library-filters">
+        <label class="form-label"
+          ><span data-i18n="recordingQuality"></span
+          ><select id="timelapse-quality">
+            <option value="compact" data-i18n="qualityCompact"></option>
+            <option value="balanced" data-i18n="qualityBalanced"></option>
+            <option value="high" data-i18n="qualityHigh"></option></select
+        ></label>
+        <label class="form-label"
+          ><span data-i18n="recordingSpeed"></span
+          ><select id="timelapse-fps">
+            <option value="6" data-i18n="fps6"></option>
+            <option value="12" selected data-i18n="fps12"></option>
+            <option value="24" data-i18n="fps24"></option></select
+        ></label>
+      </div>
+      <p id="timelapse-storage" class="microcopy" aria-live="polite"></p>
       <div class="timelapse-meta">
         <strong id="timelapse-status" role="status"></strong
         ><span id="timelapse-count"></span>
@@ -1587,6 +1893,13 @@
         ><span data-i18n="fillTolerance" class=""></span
         ><output id="tolerance-value"></output></label
       ><input id="fill-tolerance" type="range" min="0" max="80" value="24" />
+      <div class="workbench-actions">
+        <button
+          id="workspace-open"
+          class="button"
+          data-i18n="workspaceSettings"
+        ></button>
+      </div>
       <div class="workbench-actions">
         <button
           id="diagnostics-open"

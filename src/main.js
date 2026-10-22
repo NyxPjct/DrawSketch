@@ -1,3 +1,14 @@
+import {
+  neutralAdjustments,
+  validAdjustments,
+  validPalettes,
+} from "./color-model.js";
+import { normalizeControls } from "./controls-model.js";
+import { initNavigator } from "./navigator.js";
+import { initPalettes } from "./palettes.js";
+import { initAdjustments } from "./adjustments.js";
+import { initComfort } from "./comfort.js";
+import { initMetrics, measure } from "./metrics.js";
 import "./style.css";
 import { validCurve, defaultCurve } from "./brush-model.js";
 import {
@@ -91,6 +102,7 @@ const settings = {
   colorMix: Number.isFinite(savedSettings.colorMix)
     ? Math.max(0, Math.min(100, savedSettings.colorMix))
     : 0,
+  ...normalizeControls(savedSettings),
   tilt: savedSettings.tilt !== false,
   pressureCurve: validCurve(savedSettings.pressureCurve)
     ? savedSettings.pressureCurve
@@ -107,6 +119,8 @@ const state = {
   background: "white",
   layers: [],
   groups: [],
+  palettes: [],
+  favoriteColors: [],
   editMask: false,
   activeId: null,
   tool: "brush",
@@ -134,7 +148,18 @@ const state = {
   revision: 0,
 };
 const selection = new Selection(state.width, state.height);
-let studio, references, timelapse, library, diagnostics, updates;
+let studio,
+  references,
+  timelapse,
+  library,
+  diagnostics,
+  updates,
+  navigatorPanel,
+  projectPalettes,
+  adjustments,
+  comfort,
+  metricsController;
+let pendingInputAt = null;
 let savedRevision = -1;
 let saveTimer, toastTimer, frame;
 let saveQueue = Promise.resolve();
@@ -228,6 +253,7 @@ function makeLayer(
     locked: false,
     opacity: 1,
     blend: "source-over",
+    adjustments: { ...neutralAdjustments },
     mask: null,
     maskEnabled: true,
     alphaLock: false,
@@ -237,24 +263,30 @@ function makeLayer(
   };
 }
 function composite(target, background = state.background, rect = null) {
-  const preview = selection.floating
-    ? (layer) => {
-        if (
-          selection.floating.target !== layer.canvas &&
-          selection.floating.target !== layer.mask
-        )
-          return null;
-        const image = selection.preview();
-        return effectiveLayer({
-          ...layer,
-          canvas:
-            selection.floating.target === layer.canvas ? image : layer.canvas,
-          mask: selection.floating.target === layer.mask ? image : layer.mask,
-          _maskSignature: null,
-          _masked: null,
-        });
-      }
-    : null;
+  const preview =
+    selection.floating || state.adjustmentPreview
+      ? (layer) => {
+          if (state.adjustmentPreview?.layerId === layer.id)
+            return effectiveLayer(state.adjustmentPreview.layer);
+          if (!selection.floating) return null;
+          if (
+            selection.floating.target !== layer.canvas &&
+            selection.floating.target !== layer.mask
+          )
+            return null;
+          const image = selection.preview();
+          return effectiveLayer({
+            ...layer,
+            canvas:
+              selection.floating.target === layer.canvas ? image : layer.canvas,
+            mask: selection.floating.target === layer.mask ? image : layer.mask,
+            _adjusted: null,
+            _adjustSignature: null,
+            _maskSignature: null,
+            _masked: null,
+          });
+        }
+      : null;
   renderScene(
     target,
     state.layers,
@@ -267,12 +299,19 @@ function composite(target, background = state.background, rect = null) {
   );
 }
 function render(rect = null) {
+  const renderStart = performance.now();
   if (frame) {
     cancelAnimationFrame(frame);
     frame = null;
   }
   composite(context, state.background, rect);
   selection.outline($("selection-overlay").getContext("2d"));
+  measure("render", performance.now() - renderStart);
+  if (pendingInputAt !== null) {
+    measure("inputToFrame", performance.now() - pendingInputAt);
+    pendingInputAt = null;
+  }
+  navigatorPanel?.scene();
 }
 let pendingRegion = null,
   fullFrame = false;
@@ -322,11 +361,12 @@ function syncDocument() {
   syncTitle();
   render();
   renderLayers();
+  projectPalettes?.refreshLanguage();
 }
 function snapshot() {
   return {
     format: "drawsketch",
-    version: 3,
+    version: 4,
     id: state.id,
     width: state.width,
     height: state.height,
@@ -334,6 +374,8 @@ function snapshot() {
     titleKey: state.titleKey,
     background: state.background,
     activeId: state.activeId,
+    palettes: state.palettes.map((p) => ({ ...p, colors: [...p.colors] })),
+    favoriteColors: [...state.favoriteColors],
     groups: state.groups.map(
       ({ id, name, nameKey, nameParams, visible, opacity }) => ({
         id,
@@ -353,6 +395,7 @@ function snapshot() {
       locked: layer.locked,
       opacity: layer.opacity,
       blend: layer.blend,
+      adjustments: { ...layer.adjustments },
       image: encoded(layer.canvas),
       mask: layer.mask ? encoded(layer.mask) : null,
       maskEnabled: layer.maskEnabled,
@@ -366,6 +409,7 @@ function updateHistoryButtons() {
   $("undo").disabled = state.busy || state.historyIndex <= 0;
   $("redo").disabled =
     state.busy || state.historyIndex >= state.history.length - 1;
+  comfort?.sync();
 }
 function scheduleSave() {
   clearTimeout(saveTimer);
@@ -382,9 +426,22 @@ async function saveLocal(forceCheckpoint = false) {
   const thumbnail = document.createElement("canvas");
   thumbnail.width = 360;
   thumbnail.height = Math.round((360 * state.height) / state.width);
-  thumbnail
-    .getContext("2d")
-    .drawImage(canvas, 0, 0, thumbnail.width, thumbnail.height);
+  const thumbnailContext = thumbnail.getContext("2d");
+  if (state.adjustmentPreview) {
+    thumbnailContext.scale(
+      thumbnail.width / state.width,
+      thumbnail.height / state.height,
+    );
+    renderScene(
+      thumbnailContext,
+      state.layers,
+      state.groups,
+      state.width,
+      state.height,
+      state.background,
+    );
+  } else
+    thumbnailContext.drawImage(canvas, 0, 0, thumbnail.width, thumbnail.height);
   const record = {
     id,
     title: titleOf(),
@@ -430,7 +487,7 @@ function validProject(data) {
   if (
     !(
       data?.format === "drawsketch" &&
-      [1, 2, 3].includes(data.version) &&
+      [1, 2, 3, 4].includes(data.version) &&
       Number.isInteger(data.width) &&
       Number.isInteger(data.height) &&
       data.width >= 64 &&
@@ -444,6 +501,8 @@ function validProject(data) {
       data.layers.length <= MAX_LAYERS
     )
   )
+    return false;
+  if (!validPalettes(data.palettes || [], data.favoriteColors || []))
     return false;
   const png = (value) =>
     typeof value === "string" && value.startsWith("data:image/png;base64,");
@@ -480,6 +539,8 @@ function validProject(data) {
         (!layer.mask || png(layer.mask))
       )
     )
+      return false;
+    if (layer.adjustments !== undefined && !validAdjustments(layer.adjustments))
       return false;
     const group = layer.groupId || null;
     if (group && !groupIds.has(group)) return false;
@@ -527,6 +588,7 @@ async function restore(data) {
       : "source-over";
     layerContext(layer).drawImage(image, 0, 0);
     layer.canvas._studioPNG = entry.image;
+    layer.adjustments = { ...neutralAdjustments, ...entry.adjustments };
     layer.alphaLock = entry.alphaLock === true;
     layer.clipping = entry.clipping === true;
     layer.groupId = entry.groupId || null;
@@ -560,6 +622,14 @@ async function restore(data) {
     ? data.background
     : "white";
   state.layers = layers;
+  state.palettes = (data.palettes || []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    colors: p.colors.map((c) => c.toLowerCase()),
+  }));
+  state.favoriteColors = [
+    ...new Set((data.favoriteColors || []).map((c) => c.toLowerCase())),
+  ];
   state.groups = (data.groups || []).map((group) => ({
     id: group.id,
     name: group.name.slice(0, 80),
@@ -868,6 +938,7 @@ function setColor(color, preserveHsv = false) {
 function applyTransform() {
   $("canvas-shell").style.transform =
     `translate(-50%,-50%) translate(${state.panX}px,${state.panY}px) scale(${state.zoom}) rotate(${state.rotation}deg)`;
+  navigatorPanel?.view();
   $("zoom-value").textContent = `${Math.round(state.zoom * 100)}%`;
   $("rotation-value").textContent = `${Math.round(state.rotation)}°`;
 }
@@ -883,7 +954,7 @@ function fitCanvas() {
       (viewport.clientHeight - (landscape ? 80 : 140)) / state.height,
     ),
   );
-  state.panX = landscape ? 0 : 20;
+  state.panX = landscape ? 0 : settings.handedness === "left" ? -20 : 20;
   state.panY = 0;
   applyTransform();
 }
@@ -959,6 +1030,7 @@ function brushConfig() {
   };
 }
 function strokeSegment(ctx, from, to, dot = false) {
+  const started = performance.now();
   if (!state.editMask && activeLayer().alphaLock && state.tool === "eraser")
     return;
   selection.clip(ctx, () =>
@@ -967,6 +1039,17 @@ function strokeSegment(ctx, from, to, dot = false) {
     ),
   );
   dirty(ctx.canvas);
+  measure("brush", performance.now() - started);
+}
+function recordInput(event) {
+  const now = performance.now();
+  if (
+    pendingInputAt === null &&
+    event.timeStamp >= 0 &&
+    event.timeStamp <= now &&
+    now - event.timeStamp < 60_000
+  )
+    pendingInputAt = event.timeStamp;
 }
 function cancelDrawing() {
   if (state.drawing?.type === "move") selection.floating = null;
@@ -1012,11 +1095,13 @@ async function tapAction(event) {
   state.busy = true;
   updateHistoryButtons();
   try {
+    const fillStart = performance.now();
     const result = await runFill(image, p, {
       color: config.color,
       opacity: state.editMask && config.erasing ? 0 : state.opacity,
       tolerance: settings.tolerance,
     });
+    measure("fill", performance.now() - fillStart);
     if (result.changed) {
       const output = surface(state.width, state.height);
       output
@@ -1139,6 +1224,7 @@ viewport.addEventListener("pointerdown", (event) => {
   };
   if (event.pointerType === "touch") studio?.startHold(event);
   if (type === "stroke") {
+    recordInput(event);
     strokeSegment(paintContext(layer), p, p, true);
     requestRender();
   }
@@ -1197,6 +1283,7 @@ viewport.addEventListener("pointermove", (event) => {
     return;
   }
   if (drawing.type === "tap") return;
+  recordInput(event);
   const segmentStart = { ...drawing.last };
   const ctx = drawing.target.getContext("2d");
   if (drawing.type === "shape") {
@@ -1367,6 +1454,10 @@ function refreshLanguage() {
   timelapse?.refreshLanguage();
   diagnostics?.refreshLanguage();
   updates?.refreshLanguage();
+  navigatorPanel?.refreshLanguage();
+  projectPalettes?.refreshLanguage();
+  comfort?.refreshLanguage();
+  metricsController?.refreshLanguage();
   if (currentToast)
     $("toast").textContent = t(currentToast.key, currentToast.params);
   if ($("gallery-dialog").open) renderGallery();
@@ -1561,6 +1652,7 @@ $("duplicate-layer").addEventListener("click", () => {
   layer.visible = source.visible;
   layer.opacity = source.opacity;
   layer.blend = source.blend;
+  layer.adjustments = { ...source.adjustments };
   layer.alphaLock = source.alphaLock;
   layer.clipping = source.clipping;
   layer.groupId = source.groupId;
@@ -1767,6 +1859,8 @@ $("new-form").addEventListener("submit", async (event) => {
   const layer = makeLayer("", "layerDefault", { n: 1 });
   state.layers = [layer];
   state.groups = [];
+  state.palettes = [];
+  state.favoriteColors = [];
   state.editMask = false;
   state.activeId = layer.id;
   state.history = [];
@@ -2019,25 +2113,32 @@ document.addEventListener("keydown", (event) => {
     toggleFocus();
     return;
   }
-  const tool = {
-    m: "select",
-    q: "lasso",
-    v: "move",
-    b: "brush",
-    e: "eraser",
-    g: "fill",
-    i: "eyedropper",
-    l: "line",
-    r: "rectangle",
-    o: "ellipse",
-    h: "hand",
-  }[event.key.toLowerCase()];
-  if (tool) selectTool(tool);
-  else if (event.key.toLowerCase() === "f") fitCanvas();
-  else if (event.key === "[" || event.key === "]") {
+  const action = Object.keys(settings.shortcuts).find(
+    (key) => settings.shortcuts[key] === event.key.toLowerCase(),
+  );
+  if (!action) return;
+  event.preventDefault();
+  if (
+    [
+      "select",
+      "lasso",
+      "move",
+      "brush",
+      "eraser",
+      "fill",
+      "eyedropper",
+      "line",
+      "rectangle",
+      "ellipse",
+      "hand",
+    ].includes(action)
+  )
+    selectTool(action);
+  else if (action === "fit") fitCanvas();
+  else if (action === "smaller" || action === "larger") {
     state.size = Math.max(
       1,
-      Math.min(160, state.size + (event.key === "[" ? -2 : 2)),
+      Math.min(160, state.size + (action === "smaller" ? -2 : 2)),
     );
     syncBrush();
   }
@@ -2107,6 +2208,7 @@ async function initialize() {
   commit();
   fitCanvas();
   applyTranslations();
+  comfort?.refreshLanguage();
   document.documentElement.dataset.ready = "true";
   if (
     import.meta.env.PROD &&
@@ -2124,6 +2226,24 @@ async function initialize() {
         console.warn("Offline registration unavailable:", error),
       );
   }
+}
+function performAction(action) {
+  if (state.busy || state.drawing || state.gesture || selection.floating)
+    return;
+  const actions = {
+    navigator: () => navigatorPanel.open(),
+    palettes: () => projectPalettes.open(),
+    adjustments: () => adjustments.open(),
+    performance: () => metricsController.open(),
+    references: () => $("references-open").click(),
+    timelapse: () => $("timelapse-open").click(),
+    undo: () => undo(-1),
+    redo: () => undo(1),
+    fit: fitCanvas,
+    focus: toggleFocus,
+    brush: () => $("choose-brush").click(),
+  };
+  actions[action]?.();
 }
 const studioApi = {
   state,
@@ -2168,6 +2288,14 @@ const studioApi = {
       ? t(record.data.titleKey)
       : record.title,
   openRecord,
+  screenToCanvas,
+  zoomBy,
+  centerOn: (p) => {
+    const b = viewport.getBoundingClientRect();
+    anchorView(p, b.left + b.width / 2, b.top + b.height / 2);
+  },
+  referenceImage: () => references?.getImage(),
+  performAction,
 };
 studio = initStudio(studioApi);
 references = initReferences(studioApi);
@@ -2175,6 +2303,11 @@ timelapse = initTimelapse(studioApi);
 library = initLibrary(studioApi);
 diagnostics = initDiagnostics(studioApi);
 updates = initUpdates(studioApi);
+navigatorPanel = initNavigator(studioApi);
+projectPalettes = initPalettes(studioApi);
+adjustments = initAdjustments(studioApi);
+metricsController = initMetrics(studioApi);
+comfort = initComfort(studioApi);
 initialize().catch((error) => {
   console.error(error);
   toast("errorStart");

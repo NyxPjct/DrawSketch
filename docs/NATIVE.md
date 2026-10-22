@@ -52,7 +52,7 @@ npm run mobile:android
 
 The helper uses official checksums and the provided environment CA when present. Java proxy properties are saved in its local Gradle cache. It preserves an existing Gradle configuration rather than overwriting it. Gradle's wrapper distribution has a pinned SHA-256.
 
-`npm run mobile:android` builds current web assets, syncs Capacitor, compiles the debug application, and copies the APK to `release/DrawSketch-0.4.0-android-debug.apk`. Android 7/API 24 or later is required, with a current Android System WebView. The APK is installable for testing and uses Android debug signing. Debug keys can differ between build machines; export a sketchbook backup before replacing a test APK. Production updates require a consistent publisher-controlled signing key. A Play Store release requires a publisher-controlled signing key and release AAB build; keys are never committed.
+`npm run mobile:android` builds current web assets, syncs Capacitor, compiles the debug application, and copies the APK to `release/DrawSketch-0.5.0-android-debug.apk`. Android 7/API 24 or later is required, with a current Android System WebView. The APK is installable for testing and uses Android debug signing. Debug keys can differ between build machines; export a sketchbook backup before replacing a test APK. Production updates require a consistent publisher-controlled signing key. A Play Store release requires a publisher-controlled signing key and release AAB build; keys are never committed.
 
 ### iPhone and iPad
 
@@ -79,11 +79,11 @@ The workflow uses GitHub's repository-scoped token for release assets. It does n
 
 The Linux cloud build verifies the browser editor, compiles an Android debug APK, Linux AppImage/Debian packages, and a Windows ZIP. The Windows NSIS/portable executable cross-build is blocked by the Wine runtime on this host and is handled by the native Windows job. Electron runtime automation checks the actual desktop engine. Windows cross-compilation does not establish Windows runtime compatibility. macOS/iOS compilation is handled by native-host workflows. The macOS recovery workflow also runs the packaged Intel app through the Electron smoke check. Compilation alone does not establish Apple Silicon runtime compatibility or an executed iOS simulator session; these checks still need the relevant runtime and hardware. No physical pen or tablet is connected to this environment.
 
-## Version 0.4 signing and diagnostics
+## Signing, diagnostics, and precision tools
 
 The [distribution guide](DISTRIBUTION.md) documents publisher-signed desktop builds, opt-in update checks, Android release APK/AAB generation, and physical iOS archive/export. These paths require real publisher credentials and are not claimed as signed or provisioned by the test release.
 
-Use **Settings → Test your pen** to collect device input readings in a scratchpad without changing your drawing. Export the report alongside your manual acceptance results. References and timelapse export also need checks on the target WebView and native share sheet.
+Use **Settings → Test your pen** to collect device input readings in a scratchpad without changing your drawing. Export the report alongside your manual acceptance results. References, project-format-4 adjustments/palettes, handedness, navigator gestures, and timelapse export also need checks on the target WebView and native share sheet. The local performance report helps compare software timing but does not establish physical pen latency.
 
 ## Physical-device acceptance matrix
 

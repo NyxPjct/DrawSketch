@@ -1,3 +1,9 @@
+import {
+  neutralAdjustments,
+  hasAdjustments,
+  adjustmentFilter,
+  adjustPixels,
+} from "./color-model.js";
 export function surface(width, height) {
   const canvas = document.createElement("canvas");
   canvas.width = width;
@@ -17,19 +23,53 @@ export function clone(canvas) {
   return copy;
 }
 
+export function adjustedLayer(layer) {
+  const value = layer.adjustments || neutralAdjustments;
+  if (!hasAdjustments(value)) return layer.canvas;
+  const signature = `${layer.canvas._studioRevision || 0}:${JSON.stringify(value)}`;
+  if (
+    layer._adjustSignature !== signature ||
+    layer._adjustSource !== layer.canvas
+  ) {
+    layer._adjusted ||= surface(layer.canvas.width, layer.canvas.height);
+    const ctx = layer._adjusted.getContext("2d");
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    if ("filter" in ctx) {
+      ctx.filter = adjustmentFilter(value);
+      ctx.drawImage(layer.canvas, 0, 0);
+      ctx.filter = "none";
+    } else {
+      ctx.drawImage(layer.canvas, 0, 0);
+      const image = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+      adjustPixels(image.data, value);
+      ctx.putImageData(image, 0, 0);
+    }
+    dirty(layer._adjusted);
+    layer._adjustSignature = signature;
+    layer._adjustSource = layer.canvas;
+  }
+  return layer._adjusted;
+}
 export function effectiveLayer(layer) {
-  if (!layer.mask || layer.maskEnabled === false) return layer.canvas;
-  const signature = `${layer.canvas._studioRevision || 0}:${layer.mask._studioRevision || 0}`;
-  if (layer._maskSignature !== signature || layer._maskSource !== layer.mask) {
+  const image = adjustedLayer(layer);
+  if (!layer.mask || layer.maskEnabled === false) return image;
+  const signature = `${image._studioRevision || 0}:${layer.mask._studioRevision || 0}`;
+  if (
+    layer._maskSignature !== signature ||
+    layer._maskSource !== layer.mask ||
+    layer._maskImageSource !== image
+  ) {
     layer._masked ||= surface(layer.canvas.width, layer.canvas.height);
     const ctx = layer._masked.getContext("2d");
     ctx.clearRect(0, 0, layer.canvas.width, layer.canvas.height);
-    ctx.drawImage(layer.canvas, 0, 0);
+    ctx.drawImage(image, 0, 0);
     ctx.globalCompositeOperation = "destination-in";
     ctx.drawImage(layer.mask, 0, 0);
     ctx.globalCompositeOperation = "source-over";
     layer._maskSignature = signature;
     layer._maskSource = layer.mask;
+    layer._maskImageSource = image;
+    dirty(layer._masked);
   }
   return layer._masked;
 }
@@ -44,15 +84,24 @@ function paintBlock(ctx, layers, width, height, preview) {
       // Clipping depends on both source layers; scratch is reused without caching stale previews.
       layer._clipped ||= surface(width, height);
       const clip = layer._clipped.getContext("2d");
-      clip.clearRect(0, 0, width, height);
-      clip.globalAlpha = 1;
-      clip.globalCompositeOperation = "source-over";
-      clip.drawImage(image, 0, 0);
-      clip.globalCompositeOperation = "destination-in";
-      clip.globalAlpha = base.opacity;
-      clip.drawImage(base.image, 0, 0);
-      clip.globalAlpha = 1;
-      clip.globalCompositeOperation = "source-over";
+      if (
+        layer._clipSignature !== signature ||
+        layer._clipSource !== image ||
+        layer._clipBase !== base.image
+      ) {
+        clip.clearRect(0, 0, width, height);
+        clip.globalAlpha = 1;
+        clip.globalCompositeOperation = "source-over";
+        clip.drawImage(image, 0, 0);
+        clip.globalCompositeOperation = "destination-in";
+        clip.globalAlpha = base.opacity;
+        clip.drawImage(base.image, 0, 0);
+        clip.globalAlpha = 1;
+        clip.globalCompositeOperation = "source-over";
+        dirty(layer._clipped);
+        layer._clipSource = image;
+        layer._clipBase = base.image;
+      }
       image = layer._clipped;
       layer._clipSignature = signature;
     } else
@@ -96,14 +145,9 @@ export function renderScene(
     const layer = layers[index],
       group = groups.find((group) => group.id === layer.groupId);
     if (!group) {
-      paintBlock(
-        ctx,
-        [layer, ...collectClips(layers, index)],
-        width,
-        height,
-        preview,
-      );
-      index += 1 + collectClips(layers, index).length;
+      const clips = collectClips(layers, index);
+      paintBlock(ctx, [layer, ...clips], width, height, preview);
+      index += 1 + clips.length;
       continue;
     }
     const block = [];
@@ -124,6 +168,7 @@ export function renderScene(
           item.opacity,
           item.blend,
           item.clipping,
+          JSON.stringify(item.adjustments || neutralAdjustments),
         ].join(":"),
       )
       .join("|");
@@ -131,7 +176,8 @@ export function renderScene(
       const target = group._surface.getContext("2d");
       target.clearRect(0, 0, width, height);
       paintBlock(target, block, width, height, preview);
-      group._signature = signature;
+      // A temporary preview must not become the committed group's cached surface.
+      group._signature = preview ? null : signature;
     }
     ctx.globalAlpha = group.opacity;
     ctx.drawImage(group._surface, 0, 0);

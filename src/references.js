@@ -290,5 +290,5 @@ export function initReferences(api) {
       render();
     }
   });
-  return { load, refreshLanguage: render };
+  return { load, refreshLanguage: render, getImage: () => image };
 }

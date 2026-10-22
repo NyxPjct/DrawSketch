@@ -690,6 +690,7 @@ input[type="range"]::-moz-range-thumb {
   margin: 0;
 }
 .drawing-area {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -2537,5 +2538,208 @@ body[data-focus="true"] .workspace {
     bottom: 8px;
     top: 8px;
     max-height: calc(100% - 16px);
+  }
+}
+
+/* v0.5 precision tools: keep controls off the drawing surface when closed. */
+.quick-actions {
+  position: absolute;
+  top: 66px;
+  right: 13px;
+  z-index: 3;
+  display: flex;
+  gap: 3px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+.quick-actions .icon-button {
+  width: 32px;
+  height: 32px;
+}
+.navigator-panel {
+  position: fixed;
+  z-index: 24;
+  top: 185px;
+  right: 286px;
+  width: 292px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 225px);
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--accent-border);
+  border-radius: 13px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+#navigator-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 8px 0;
+  border-radius: 7px;
+  background: var(--bg);
+  touch-action: none;
+}
+.navigator-panel .microcopy {
+  font-size: 10px;
+  line-height: 1.5;
+}
+.navigator-panel .workbench-actions {
+  align-items: center;
+  margin-bottom: 0;
+}
+.navigator-panel .workbench-actions span {
+  font-size: 11px;
+  color: var(--muted);
+}
+.project-swatches {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 9px;
+  margin: 18px 0;
+}
+.project-swatch {
+  aspect-ratio: 1;
+  min-width: 0;
+  border: 2px solid var(--line);
+  border-radius: 9px;
+  position: relative;
+}
+.project-swatch[aria-pressed="true"] {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.project-swatch span {
+  position: absolute;
+  right: 2px;
+  bottom: 1px;
+  color: white;
+  text-shadow: 0 1px 3px black;
+  font-size: 13px;
+}
+.project-swatch:hover {
+  filter: brightness(1.08);
+}
+.quick-action-settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0;
+  font-size: 12px;
+}
+.shortcut-row input {
+  width: 50px;
+  padding: 8px;
+  text-align: center;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+#comfort-dialog details {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+#comfort-dialog summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--accent);
+}
+#performance-list p {
+  padding: 9px;
+  border-radius: 7px;
+  background: var(--surface);
+  font-size: 12px;
+  line-height: 1.6;
+}
+body[data-handedness="left"] .workspace {
+  direction: rtl;
+}
+body[data-handedness="left"] .workspace > * {
+  direction: ltr;
+}
+body[data-handedness="left"] .quick-actions {
+  right: auto;
+  left: 13px;
+}
+body[data-handedness="left"] .reference-panel,
+body[data-handedness="left"] .navigator-panel {
+  right: auto;
+  left: 286px;
+}
+@media (min-height: 551px) {
+  body[data-handedness="left"] .tool-palette {
+    left: auto;
+    right: 12px;
+  }
+}
+@media (max-width: 899px) {
+  .navigator-panel {
+    right: 12px;
+    top: 180px;
+    width: 265px;
+    max-height: calc(100dvh - 245px);
+  }
+  body[data-handedness="left"] .navigator-panel,
+  body[data-handedness="left"] .reference-panel {
+    left: 12px;
+    right: auto;
+  }
+  body[data-handedness="left"] .properties-panel {
+    left: 0;
+    right: auto;
+    transform: translateX(-100%);
+  }
+  body[data-handedness="left"] .properties-panel.open {
+    transform: translateX(0);
+  }
+}
+@media (max-width: 599px) {
+  .quick-actions {
+    top: 61px;
+    right: 10px;
+  }
+  .quick-actions .icon-button {
+    width: 30px;
+    height: 30px;
+  }
+  .canvas-caption {
+    max-width: calc(100% - 175px);
+    left: 24px;
+    transform: none;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .project-swatches {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .quick-action-settings {
+    grid-template-columns: 1fr;
+  }
+  body[data-handedness="left"] .quick-actions {
+    left: 10px;
+    right: auto;
+  }
+  body[data-handedness="left"] .canvas-caption {
+    left: auto;
+    right: 24px;
+  }
+}
+@media (max-height: 550px) and (orientation: landscape) {
+  .quick-actions {
+    top: 100px;
+  }
+  .navigator-panel {
+    top: 105px;
+    max-height: calc(100dvh - 160px);
   }
 }
