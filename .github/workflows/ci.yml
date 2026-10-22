@@ -18,4 +18,17 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm test
+      - name: Validate editor
+        shell: bash
+        run: npm test 2>&1 | tee "$RUNNER_TEMP/editor-validation.log"
+      - name: Report editor validation failure
+        if: failure()
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+          log = Path(os.environ['RUNNER_TEMP']) / 'editor-validation.log'
+          if log.is_file():
+              detail = log.read_text(errors='replace')[-14000:]
+              detail = detail.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print(f'::error title=Editor validation::{detail}')
