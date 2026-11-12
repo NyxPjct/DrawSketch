@@ -55,6 +55,7 @@ jobs:
       - name: Build Intel and Apple Silicon simulator app
         shell: bash
         run: |
+          exec > >(tee "$RUNNER_TEMP/ios-recovery-build.log") 2>&1
           xcodebuild -version
           npm run build
           npm exec -- cap sync ios
@@ -62,6 +63,17 @@ jobs:
           lipo -verify_arch arm64 x86_64 ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app/App
           mkdir -p release
           ditto -c -k --sequesterRsrc --keepParent ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app release/DrawSketch-ios-simulator.zip
+      - name: Report simulator build diagnostics
+        if: failure()
+        shell: python
+        run: |
+          import os
+          from pathlib import Path
+          log = Path(os.environ['RUNNER_TEMP']) / 'ios-recovery-build.log'
+          if log.is_file():
+              detail = log.read_text(errors='replace')[-20000:]
+              detail = detail.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print(f'::error title=iOS simulator build::{detail}')
       - name: Verify app metadata and preserve the published package checksums
         shell: bash
         run: |
