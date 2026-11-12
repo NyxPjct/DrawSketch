@@ -25,6 +25,8 @@ for (const [command, args] of [
       "-derivedDataPath",
       "ios/DerivedData",
       "CODE_SIGNING_ALLOWED=NO",
+      "ONLY_ACTIVE_ARCH=NO",
+      "ARCHS=arm64 x86_64",
       "build",
     ],
   ],

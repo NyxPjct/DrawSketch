@@ -1,0 +1,112 @@
+name: Recover iOS simulator
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to package
+        required: true
+        default: v0.6.0
+        type: string
+  push:
+    branches: [main]
+    paths: [.github/workflows/ios-recovery.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  simulator:
+    runs-on: macos-15-intel
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag || 'v0.6.0' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Verify the release source and select installed Xcode 26
+        shell: python
+        run: |
+          import json, os, plistlib, re, subprocess
+          from pathlib import Path
+          tag = os.environ['RELEASE_TAG']
+          version = json.loads(Path('package.json').read_text())['version']
+          assert re.fullmatch(r'v\d+\.\d+\.\d+', tag) and tag == 'v' + version
+          candidates = []
+          for app in Path('/Applications').glob('Xcode*.app'):
+              info = plistlib.loads((app / 'Contents/Info.plist').read_bytes())
+              number = tuple(int(v) for v in info['CFBundleShortVersionString'].split('.') if v.isdecimal())
+              if number and number[0] >= 26:
+                  candidates.append((number, str(app / 'Contents/Developer')))
+          assert candidates, 'Xcode 26 or newer is required'
+          selected = max(candidates)[1]
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write('DEVELOPER_DIR=' + selected + '\n')
+          print('Selected ' + selected)
+          subprocess.run(['git', 'rev-parse', 'HEAD'], check=True)
+      - run: npm ci
+      - name: Build Intel and Apple Silicon simulator app
+        shell: bash
+        run: |
+          xcodebuild -version
+          npm run build
+          npm exec -- cap sync ios
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/DerivedData CODE_SIGNING_ALLOWED=NO ONLY_ACTIVE_ARCH=NO 'ARCHS=arm64 x86_64' build
+          lipo -verify_arch arm64 x86_64 ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app/App
+          mkdir -p release
+          ditto -c -k --sequesterRsrc --keepParent ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app release/DrawSketch-ios-simulator.zip
+      - name: Verify app metadata and preserve the published package checksums
+        shell: bash
+        run: |
+          curl --fail --location --silent --show-error --retry 3 --retry-delay 5 \
+            "https://github.com/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG/SHA256SUMS.txt" \
+            -o release/previous-checksums.txt
+          python3 - <<'PY'
+          import hashlib, json, os, plistlib, re
+          from pathlib import Path
+          version = json.loads(Path('package.json').read_text())['version']
+          info = plistlib.loads(Path('ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app/Info.plist').read_bytes())
+          assert info['CFBundleIdentifier'] == 'com.nyxp.drawsketch'
+          assert info['CFBundleShortVersionString'] == version
+          assert str(info['CFBundleVersion']).isdecimal()
+          prefix = 'DrawSketch-' + version
+          expected = {prefix + suffix for suffix in ['-android-debug.apk', '-linux-amd64.deb', '-linux-x86_64.AppImage', '-win-x64-setup.exe', '-win-x64-portable.exe', '-mac-x64.dmg', '-mac-x64.zip', '-mac-arm64.dmg', '-mac-arm64.zip']}
+          root = Path('release')
+          entries = {}
+          for line in (root / 'previous-checksums.txt').read_text().splitlines():
+              digest, name = line.split(maxsplit=1)
+              name = name.removeprefix('./')
+              assert re.fullmatch(r'[a-fA-F0-9]{64}', digest) and Path(name).name == name and name not in entries
+              entries[name] = digest.lower()
+          name = 'DrawSketch-ios-simulator.zip'
+          assert set(entries) in [expected, expected | {name}], 'Expected all nine validated native packages'
+          digest = hashlib.sha256()
+          with (root / name).open('rb') as data:
+              for chunk in iter(lambda: data.read(1024 * 1024), b''):
+                  digest.update(chunk)
+          entries[name] = digest.hexdigest()
+          (root / 'SHA256SUMS.txt').write_text(''.join(entries[n] + '  ./' + n + '\n' for n in sorted(entries)))
+          print('Simulator version verified; preserved all nine existing checksums and added the tenth package')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: recovered-ios-simulator
+          if-no-files-found: error
+          path: |
+            release/DrawSketch-ios-simulator.zip
+            release/SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          files: |
+            release/DrawSketch-ios-simulator.zip
+            release/SHA256SUMS.txt

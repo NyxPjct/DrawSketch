@@ -111,7 +111,7 @@ jobs:
 
   ios:
     needs: validate
-    runs-on: macos-latest
+    runs-on: macos-15-intel
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -120,6 +120,20 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Select installed Xcode 26
+        shell: python
+        run: |
+          import os, plistlib
+          from pathlib import Path
+          candidates = []
+          for app in Path('/Applications').glob('Xcode*.app'):
+              info = plistlib.loads((app / 'Contents/Info.plist').read_bytes())
+              version = tuple(int(v) for v in info['CFBundleShortVersionString'].split('.') if v.isdecimal())
+              if version and version[0] >= 26:
+                  candidates.append((version, str(app / 'Contents/Developer')))
+          assert candidates, 'Xcode 26 or newer is required'
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              output.write('DEVELOPER_DIR=' + max(candidates)[1] + '\n')
       - run: npm run mobile:ios
       - run: ditto -c -k --sequesterRsrc --keepParent ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app release/DrawSketch-ios-simulator.zip
       - uses: actions/upload-artifact@v4
