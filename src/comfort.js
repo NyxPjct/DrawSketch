@@ -5,6 +5,9 @@ import {
   validShortcuts,
 } from "./controls-model.js";
 const labelKeys = {
+  guides: "guides",
+  study: "study",
+  fillProfessional: "fillProfessional",
   fit: "fitCanvas",
   smaller: "brushSmaller",
   larger: "brushLarger",
@@ -20,6 +23,9 @@ const labelKeys = {
   performance: "performance",
 };
 const icons = {
+  guides: "line",
+  study: "clock",
+  fillProfessional: "fill",
   navigator: "grid",
   palettes: "color",
   adjustments: "sun",

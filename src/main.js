@@ -9,6 +9,10 @@ import { initPalettes } from "./palettes.js";
 import { initAdjustments } from "./adjustments.js";
 import { initComfort } from "./comfort.js";
 import { initMetrics, measure } from "./metrics.js";
+import { initGuides } from "./guides.js";
+import { initStudy } from "./study.js";
+import { normalizeFill } from "./fill-pro.js";
+import { initFillSettings } from "./fill-settings.js";
 import "./style.css";
 import { validCurve, defaultCurve } from "./brush-model.js";
 import {
@@ -79,6 +83,7 @@ try {
   savedSettings = JSON.parse(safeRead(SETTINGS_KEY) || "{}") || {};
 } catch {}
 const settings = {
+  fill: normalizeFill(savedSettings.fill),
   language: Object.hasOwn(messages, savedSettings.language)
     ? savedSettings.language
     : "en",
@@ -132,6 +137,8 @@ const state = {
   panX: 0,
   panY: 0,
   rotation: 0,
+  viewMirror: false,
+  viewGray: false,
   hue: 160,
   saturation: 0.56,
   value: 0.36,
@@ -158,7 +165,10 @@ let studio,
   projectPalettes,
   adjustments,
   comfort,
-  metricsController;
+  metricsController,
+  guides,
+  study,
+  fillSettings;
 let pendingInputAt = null;
 let savedRevision = -1;
 let saveTimer, toastTimer, frame;
@@ -346,6 +356,8 @@ function syncTitle() {
   document.title = `${titleOf()} — DrawSketch`;
 }
 function syncDocument() {
+  guides?.load(state.id);
+  study?.documentChanged();
   references?.load(state.id);
   timelapse?.load(state.id);
   canvas.width = state.width;
@@ -937,7 +949,7 @@ function setColor(color, preserveHsv = false) {
 }
 function applyTransform() {
   $("canvas-shell").style.transform =
-    `translate(-50%,-50%) translate(${state.panX}px,${state.panY}px) scale(${state.zoom}) rotate(${state.rotation}deg)`;
+    `translate(-50%,-50%) translate(${state.panX}px,${state.panY}px) scale(${state.zoom}) rotate(${state.rotation}deg) scaleX(${state.viewMirror ? -1 : 1})`;
   navigatorPanel?.view();
   $("zoom-value").textContent = `${Math.round(state.zoom * 100)}%`;
   $("rotation-value").textContent = `${Math.round(state.rotation)}°`;
@@ -965,7 +977,8 @@ function screenToCanvas(x, y) {
     angle = (state.rotation * Math.PI) / 180;
   return {
     x:
-      (dx * Math.cos(angle) + dy * Math.sin(angle)) / state.zoom +
+      ((dx * Math.cos(angle) + dy * Math.sin(angle)) / state.zoom) *
+        (state.viewMirror ? -1 : 1) +
       state.width / 2,
     y:
       (-dx * Math.sin(angle) + dy * Math.cos(angle)) / state.zoom +
@@ -984,7 +997,7 @@ function point(event) {
 function anchorView(anchor, x, y) {
   const rect = viewport.getBoundingClientRect(),
     angle = (state.rotation * Math.PI) / 180,
-    dx = anchor.x - state.width / 2,
+    dx = (anchor.x - state.width / 2) * (state.viewMirror ? -1 : 1),
     dy = anchor.y - state.height / 2;
   state.panX =
     x -
@@ -1096,11 +1109,33 @@ async function tapAction(event) {
   updateHistoryButtons();
   try {
     const fillStart = performance.now();
-    const result = await runFill(image, p, {
-      color: config.color,
-      opacity: state.editMask && config.erasing ? 0 : state.opacity,
-      tolerance: settings.tolerance,
-    });
+    let reference = null;
+    if (!state.editMask && settings.fill.reference === "visible") {
+      const source = surface(state.width, state.height);
+      renderScene(
+        source.getContext("2d"),
+        state.layers,
+        state.groups,
+        state.width,
+        state.height,
+        "transparent",
+      );
+      reference = source
+        .getContext("2d")
+        .getImageData(0, 0, state.width, state.height);
+    }
+    const result = await runFill(
+      image,
+      p,
+      {
+        color: config.color,
+        opacity: state.editMask && config.erasing ? 0 : state.opacity,
+        tolerance: settings.tolerance,
+        gap: state.editMask ? 0 : settings.fill.gap,
+        expand: state.editMask ? 0 : settings.fill.expand,
+      },
+      reference,
+    );
     measure("fill", performance.now() - fillStart);
     if (result.changed) {
       const output = surface(state.width, state.height);
@@ -1209,11 +1244,15 @@ viewport.addEventListener("pointerdown", (event) => {
     else tapAction(event);
     return;
   }
-  const p = point(event),
-    type = ["line", "rectangle", "ellipse"].includes(state.tool)
-      ? "shape"
-      : "stroke";
+  let p = point(event);
+  const type = ["line", "rectangle", "ellipse"].includes(state.tool)
+    ? "shape"
+    : "stroke";
+  const guide = type === "stroke" ? guides?.begin(p) : null;
+  if (guide) p = guide.start;
+  /* The chosen guide stays fixed for the duration of this stroke. */
   state.drawing = {
+    guide,
     type,
     pointerId: event.pointerId,
     start: p,
@@ -1315,6 +1354,7 @@ viewport.addEventListener("pointermove", (event) => {
           y: drawing.last.y + (p.y - drawing.last.y) * weight,
         };
       }
+      p = guides.project(drawing.guide, p);
       strokeSegment(ctx, drawing.last, p);
       drawing.last = p;
     }
@@ -1323,7 +1363,7 @@ viewport.addEventListener("pointermove", (event) => {
   const p = point(event),
     padding = state.size * 2 + 8;
   const rect =
-    state.symmetry === "off" && drawing.type === "stroke"
+    state.symmetry === "off" && drawing.type === "stroke" && !drawing.guide
       ? {
           x: Math.min(segmentStart.x, p.x) - padding,
           y: Math.min(segmentStart.y, p.y) - padding,
@@ -1458,6 +1498,9 @@ function refreshLanguage() {
   projectPalettes?.refreshLanguage();
   comfort?.refreshLanguage();
   metricsController?.refreshLanguage();
+  guides?.refreshLanguage();
+  study?.refreshLanguage();
+  fillSettings?.refreshLanguage();
   if (currentToast)
     $("toast").textContent = t(currentToast.key, currentToast.params);
   if ($("gallery-dialog").open) renderGallery();
@@ -2235,6 +2278,9 @@ function performAction(action) {
     palettes: () => projectPalettes.open(),
     adjustments: () => adjustments.open(),
     performance: () => metricsController.open(),
+    guides: () => guides.open(),
+    study: () => study.open(),
+    fillProfessional: () => fillSettings.open(),
     references: () => $("references-open").click(),
     timelapse: () => $("timelapse-open").click(),
     undo: () => undo(-1),
@@ -2289,6 +2335,8 @@ const studioApi = {
       : record.title,
   openRecord,
   screenToCanvas,
+  applyTransform,
+  setPractice: (value) => guides?.setExercise(value),
   zoomBy,
   centerOn: (p) => {
     const b = viewport.getBoundingClientRect();
@@ -2307,7 +2355,15 @@ navigatorPanel = initNavigator(studioApi);
 projectPalettes = initPalettes(studioApi);
 adjustments = initAdjustments(studioApi);
 metricsController = initMetrics(studioApi);
+guides = initGuides(studioApi);
+study = initStudy(studioApi);
+fillSettings = initFillSettings(studioApi);
 comfort = initComfort(studioApi);
+for (const action of ["guides", "fillProfessional", "study"])
+  $("settings-" + action).addEventListener("click", () => {
+    $("settings-dialog").close();
+    performAction(action);
+  });
 initialize().catch((error) => {
   console.error(error);
   toast("errorStart");

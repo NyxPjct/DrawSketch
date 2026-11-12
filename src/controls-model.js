@@ -15,6 +15,9 @@ export const defaultShortcuts = {
   larger: "]",
 };
 export const quickActions = [
+  "guides",
+  "study",
+  "fillProfessional",
   "navigator",
   "palettes",
   "adjustments",
@@ -27,7 +30,12 @@ export const quickActions = [
   "brush",
   "performance",
 ];
-export const defaultQuickActions = ["navigator", "palettes", "adjustments", ""];
+export const defaultQuickActions = [
+  "navigator",
+  "palettes",
+  "adjustments",
+  "study",
+];
 export function validShortcuts(value) {
   return (
     value &&

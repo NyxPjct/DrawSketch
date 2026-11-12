@@ -6,16 +6,18 @@ A personal drawing studio for desktop, tablet, and phone, with an orange and bla
 
 Built with JavaScript, Canvas 2D, and Vite. No account, API key, backend, or uploaded artwork required.
 
-## New in 0.5.1
+## New in 0.6.0 — Precision & Study
 
-- A canvas navigator with a rotated viewport outline, drag navigation, and zoom controls.
-- Project palettes, favorite colors, and automatic extraction from reference images or local files.
-- Editable, non-destructive layer brightness, contrast, hue, and saturation with live Apply/Cancel previews.
-- A left-handed workspace, remappable drawing shortcuts, and up to four configurable quick actions.
-- Adaptive timelapse sampling for long sessions, three recording-quality profiles, storage indicators, and 6/12/24 FPS export.
-- Local performance measurements, memory estimates, and an isolated benchmark that leaves your artwork unchanged.
+- Straight rulers, ellipse guides, and one-, two-, and three-point perspective, with optional brush/eraser snapping and adjustable canvas grids.
+- Professional bucket fill with small-gap closure, region expansion, and boundaries read from all visible layers while painting on the active layer.
+- Timed gesture, line, ellipse, and five-value exercises, with your own reference queue, pause/resume, multiple rounds, and the last 100 completed study thumbnails.
+- A compact study timer for phones, plus mirrored and grayscale canvas viewing aids that preserve exported pixels and colors.
+- Complete English, Brazilian Portuguese, and Spanish interface translations for every new control.
+- Timelapse export waits for encoder readiness and validates the resulting video before downloading or sharing.
 
-Project format 4 stores palettes and color adjustments; versions 1–3 remain readable. The [precision studio guide](docs/PRECISION.md) explains controls, sampling, storage, measurements, and compatibility. Existing brushes, references, masks, groups, backup, offline support, and native packages are retained.
+Open **Settings → Drawing guides**, **Professional fill**, or **Study studio**. Add these tools to the configurable quick-action bar in Workspace & shortcuts. New installations include Study studio in the fourth quick-action slot; existing custom layouts are preserved.
+
+The [Precision & Study guide](docs/LEARNING.md) explains the tools, storage, approximation limits, and exercise workflow. Project format 4 and IndexedDB schema 3 are unchanged. Guides, study references, and study history are local workspace data and are separate from project/sketchbook backups. Existing project formats 1–4 remain readable.
 
 ## A studio for every screen
 
@@ -70,7 +72,7 @@ The app starts in **English**. Open **Settings → Language** to switch to:
 
 The entire application interface updates immediately: panels, menus, dialogs, options, tooltips, accessibility labels, notifications, dates, and automatically generated document and layer names. Your selection survives a reload. Artwork and names you write yourself are preserved.
 
-Translations live in [`src/i18n.js`](src/i18n.js), [`src/i18n-studio.js`](src/i18n-studio.js), [`src/i18n-next.js`](src/i18n-next.js), and [`src/i18n-v5.js`](src/i18n-v5.js). The test suite checks that every language has the same keys and interpolation parameters and verifies the rendered interface in each language.
+Translations live in [`src/i18n.js`](src/i18n.js), [`src/i18n-studio.js`](src/i18n-studio.js), [`src/i18n-next.js`](src/i18n-next.js), [`src/i18n-v5.js`](src/i18n-v5.js), and [`src/i18n-v6.js`](src/i18n-v6.js). The test suite checks that every language has the same keys and interpolation parameters and verifies the rendered interface in each language.
 
 ## Run locally
 
@@ -114,6 +116,14 @@ npm run mobile:ios             # Build an iOS simulator app (macOS/Xcode)
 ```
 
 See [Native builds and device testing](docs/NATIVE.md) for prerequisites, verified targets, artifact locations, signing, and the hardware test matrix. Desktop builds are unsigned and the Android APK uses debug signing for testing. iPhone/iPad device installation requires Apple provisioning; App Store and Play Store publication is not automatic.
+
+## Precision & Study in action
+
+![DrawSketch desktop with snapping two-point perspective guides](docs/screenshots/desktop-guides.png)
+
+![DrawSketch tablet study timer and reference queue in a left-handed workspace](docs/screenshots/tablet-study.png)
+
+<img src="docs/screenshots/mobile-study.png" width="300" alt="DrawSketch phone with its expandable study timer and reference" />
 
 ## Explore the workbench
 
@@ -170,7 +180,7 @@ npm run build
 npm run screenshots
 ```
 
-The capture script starts its own preview server on port 4175. The test servers use ports 5174, 5176, 5181, 5183, 5185, and 4176. `npm run test:native` separately verifies the Electron renderer, real drawing, local recovery, and worker fill. See [`DEVELOPMENT.md`](DEVELOPMENT.md) for the architecture and development workflow.
+The capture script starts its own preview server on port 4175. The test servers use ports 5174, 5176, 5181, 5183, 5185, 5187, and 4176. `npm run test:native` separately verifies the Electron renderer, real drawing, local recovery, and worker fill. See [`DEVELOPMENT.md`](DEVELOPMENT.md) for the architecture and development workflow.
 
 ## Current limits
 

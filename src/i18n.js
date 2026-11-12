@@ -1,3 +1,4 @@
+import { v6Messages } from "./i18n-v6.js";
 import { v5Messages } from "./i18n-v5.js";
 import { nextMessages } from "./i18n-next.js";
 import { studioMessages } from "./i18n-studio.js";
@@ -657,6 +658,7 @@ for (const locale of Object.keys(messages))
     studioMessages[locale],
     nextMessages[locale],
     v5Messages[locale],
+    v6Messages[locale],
   );
 let locale = "en";
 export function getLanguage() {

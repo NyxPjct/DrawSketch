@@ -2743,3 +2743,136 @@ body[data-handedness="left"] .navigator-panel {
     max-height: calc(100dvh - 160px);
   }
 }
+
+/* Precision & Study */
+.guide-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  fill: none;
+  stroke: #ff8a24;
+  stroke-width: 1;
+  opacity: 0.55;
+  overflow: hidden;
+}
+.study-panel {
+  position: fixed;
+  top: 180px;
+  right: 286px;
+  z-index: 25;
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 220px);
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid var(--accent-border);
+  border-radius: 13px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+.study-panel p {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.study-panel strong {
+  font-size: 13px;
+}
+.study-time {
+  font-size: 40px;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  letter-spacing: 2px;
+}
+#study-reference-canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+  background: var(--bg);
+}
+#study-reference-name {
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+.study-panel .button {
+  min-height: 38px;
+  padding: 8px 10px;
+  font-size: 10px;
+}
+.study-history {
+  display: grid;
+  gap: 8px;
+  max-height: 300px;
+  overflow: auto;
+}
+.study-history-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  text-align: left;
+}
+.study-history-entry img {
+  width: 72px;
+  height: 54px;
+  object-fit: contain;
+  background: var(--bg);
+  border-radius: 5px;
+}
+.study-history-entry span {
+  font-size: 11px;
+  line-height: 1.6;
+}
+body[data-handedness="left"] .study-panel {
+  right: auto;
+  left: 286px;
+}
+@media (max-width: 899px) {
+  .study-panel {
+    right: 12px;
+    top: 175px;
+    width: 265px;
+    max-height: calc(100dvh - 220px);
+  }
+  body[data-handedness="left"] .study-panel {
+    left: 12px;
+    right: auto;
+  }
+}
+@media (max-height: 550px) and (orientation: landscape) {
+  .study-panel {
+    top: 105px;
+    max-height: calc(100dvh - 145px);
+    width: 250px;
+  }
+}
+.study-panel.compact {
+  width: 195px;
+}
+.study-panel.compact .study-extra {
+  display: none;
+}
+.study-panel.compact .study-time {
+  font-size: 28px;
+}
+.study-panel.compact .study-controls button:disabled {
+  display: none;
+}
+.study-panel .dialog-heading strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#study-collapse,
+#study-close {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+}

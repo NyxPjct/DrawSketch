@@ -616,7 +616,14 @@
               height="800"
               data-i18n-aria-label="canvas"
             ></canvas>
-            <canvas
+            <svg
+              id="guide-overlay"
+              class="guide-overlay"
+              aria-hidden="true"
+              preserveAspectRatio="none"
+              hidden
+            ></svg
+            ><canvas
               id="selection-overlay"
               class="selection-overlay"
               aria-hidden="true"
@@ -1842,6 +1849,350 @@
       <p data-i18n="helpNote" class=""></p>
       <p class="microcopy" data-i18n="gestureHint"></p>
     </dialog>
+    <dialog id="guides-dialog" class="wide-dialog">
+      <div class="dialog-heading">
+        <span class="eyebrow" data-i18n="guides"></span
+        ><button
+          type="button"
+          class="icon-button close-dialog"
+          data-i18n-aria-label="close"
+        >
+          <svg aria-hidden="true"><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <h2 data-i18n="guideHeading"></h2>
+      <p data-i18n="guideHint"></p>
+      <label class="form-label"
+        ><span data-i18n="guideMode"></span
+        ><select id="guide-mode">
+          <option value="off" data-i18n="guideoff"></option>
+          <option value="ruler" data-i18n="guideruler"></option>
+          <option value="ellipse" data-i18n="guideellipse"></option>
+          <option value="perspective1" data-i18n="guideperspective1"></option>
+          <option value="perspective2" data-i18n="guideperspective2"></option>
+          <option
+            value="perspective3"
+            data-i18n="guideperspective3"
+          ></option></select></label
+      ><label class="check-row"
+        ><input type="checkbox" id="guide-snap" /><span
+          data-i18n="guideSnap"
+        ></span
+      ></label>
+      <div data-guide-modes="ruler">
+        <label class="range-label" for="guide-angle"
+          ><span data-i18n="guideangle"></span
+          ><output id="guide-angle-value"></output></label
+        ><input
+          type="range"
+          id="guide-angle"
+          min="-180"
+          max="180"
+          step="1"
+          data-guide="angle"
+        />
+      </div>
+      <div
+        data-guide-modes="ruler ellipse perspective1 perspective2 perspective3"
+      >
+        <label class="range-label" for="guide-cx"
+          ><span data-i18n="guidecx"></span
+          ><output id="guide-cx-value"></output></label
+        ><input
+          type="range"
+          id="guide-cx"
+          min="0"
+          max="1"
+          step=".01"
+          data-guide="cx"
+        />
+      </div>
+      <div data-guide-modes="ruler ellipse">
+        <label class="range-label" for="guide-cy"
+          ><span data-i18n="guidecy"></span
+          ><output id="guide-cy-value"></output></label
+        ><input
+          type="range"
+          id="guide-cy"
+          min="0"
+          max="1"
+          step=".01"
+          data-guide="cy"
+        />
+      </div>
+      <div data-guide-modes="ellipse">
+        <label class="range-label" for="guide-rx"
+          ><span data-i18n="guiderx"></span
+          ><output id="guide-rx-value"></output></label
+        ><input
+          type="range"
+          id="guide-rx"
+          min="0.05"
+          max="0.5"
+          step=".01"
+          data-guide="rx"
+        />
+      </div>
+      <div data-guide-modes="ellipse">
+        <label class="range-label" for="guide-ry"
+          ><span data-i18n="guidery"></span
+          ><output id="guide-ry-value"></output></label
+        ><input
+          type="range"
+          id="guide-ry"
+          min="0.05"
+          max="0.5"
+          step=".01"
+          data-guide="ry"
+        />
+      </div>
+      <div data-guide-modes="perspective1 perspective2 perspective3">
+        <label class="range-label" for="guide-horizon"
+          ><span data-i18n="guidehorizon"></span
+          ><output id="guide-horizon-value"></output></label
+        ><input
+          type="range"
+          id="guide-horizon"
+          min="0"
+          max="1"
+          step=".01"
+          data-guide="horizon"
+        />
+      </div>
+      <div data-guide-modes="perspective2 perspective3">
+        <label class="range-label" for="guide-spread"
+          ><span data-i18n="guidespread"></span
+          ><output id="guide-spread-value"></output></label
+        ><input
+          type="range"
+          id="guide-spread"
+          min="0.1"
+          max="2"
+          step=".01"
+          data-guide="spread"
+        />
+      </div>
+      <div data-guide-modes="perspective3">
+        <label class="range-label" for="guide-vertical"
+          ><span data-i18n="guidevertical"></span
+          ><output id="guide-vertical-value"></output></label
+        ><input
+          type="range"
+          id="guide-vertical"
+          min="-2"
+          max="2"
+          step=".01"
+          data-guide="vertical"
+        />
+      </div>
+      <label class="range-label" for="guide-grid"
+        ><span data-i18n="guideGrid"></span
+        ><output id="guide-grid-value"></output></label
+      ><input type="range" id="guide-grid" min="0" max="12" step="1" /><button
+        type="button"
+        id="guide-reset"
+        class="button"
+        data-i18n="guideReset"
+      ></button>
+      <h3 data-i18n="viewTools"></h3>
+      <label class="check-row"
+        ><input type="checkbox" id="view-mirror" data-view /><span
+          data-i18n="viewMirror"
+        ></span></label
+      ><label class="check-row"
+        ><input type="checkbox" id="view-gray" data-view /><span
+          data-i18n="viewGray"
+        ></span
+      ></label>
+      <p class="microcopy" data-i18n="viewHint"></p>
+      <div class="dialog-actions">
+        <button class="button primary close-dialog" data-i18n="done"></button>
+      </div>
+    </dialog>
+    <dialog id="fill-dialog" class="wide-dialog">
+      <div class="dialog-heading">
+        <span class="eyebrow" data-i18n="fillProfessional"></span
+        ><button
+          type="button"
+          class="icon-button close-dialog"
+          data-i18n-aria-label="close"
+        >
+          <svg aria-hidden="true"><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <h2 data-i18n="fillProfessional"></h2>
+      <p data-i18n="fillProHint"></p>
+      <label class="form-label"
+        ><span data-i18n="fillReference"></span
+        ><select id="fill-reference">
+          <option value="active" data-i18n="fillActive"></option>
+          <option
+            value="visible"
+            data-i18n="fillVisible"
+          ></option></select></label
+      ><label class="range-label" for="fill-gap"
+        ><span data-i18n="fillGap"></span
+        ><output id="fill-gap-value"></output></label
+      ><input type="range" id="fill-gap" min="0" max="8" step="1" /><label
+        class="range-label"
+        for="fill-expand"
+        ><span data-i18n="fillExpand"></span
+        ><output id="fill-expand-value"></output></label
+      ><input type="range" id="fill-expand" min="0" max="12" step="1" />
+      <div class="dialog-actions">
+        <button class="button primary close-dialog" data-i18n="done"></button>
+      </div>
+    </dialog>
+    <dialog id="study-dialog" class="wide-dialog">
+      <div class="dialog-heading">
+        <span class="eyebrow" data-i18n="study"></span
+        ><button
+          type="button"
+          class="icon-button close-dialog"
+          data-i18n-aria-label="close"
+        >
+          <svg aria-hidden="true"><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <h2 data-i18n="studyHeading"></h2>
+      <p data-i18n="studyHint"></p>
+      <label class="form-label"
+        ><span data-i18n="studyExercise"></span
+        ><select id="study-exercise">
+          <option value="gesture" data-i18n="exercisegesture"></option>
+          <option value="lines" data-i18n="exerciselines"></option>
+          <option value="ellipses" data-i18n="exerciseellipses"></option>
+          <option value="values" data-i18n="exercisevalues"></option></select
+      ></label>
+      <div class="preferences-grid">
+        <label class="form-label"
+          ><span data-i18n="studyDuration"></span
+          ><input
+            id="study-duration"
+            type="number"
+            min="10"
+            max="3600"
+            value="60" /></label
+        ><label class="form-label"
+          ><span data-i18n="studyRounds"></span
+          ><input id="study-rounds" type="number" min="1" max="20" value="5"
+        /></label>
+      </div>
+      <div class="workbench-actions">
+        <button
+          type="button"
+          id="study-start"
+          class="button primary"
+          data-i18n="studyStart"
+        ></button
+        ><button
+          type="button"
+          id="study-new-canvas"
+          class="button"
+          data-i18n="studyNewCanvas"
+        ></button>
+      </div>
+      <h3 data-i18n="studyReferences"></h3>
+      <div class="workbench-actions">
+        <button
+          type="button"
+          id="study-reference-add"
+          class="button"
+          data-i18n="studyReferenceAdd"
+        ></button
+        ><button
+          type="button"
+          id="study-reference-use"
+          class="button"
+          data-i18n="studyReferenceUse"
+        ></button
+        ><button
+          type="button"
+          id="study-reference-clear"
+          class="button"
+          data-i18n="studyReferenceClear"
+        ></button>
+      </div>
+      <p id="study-reference-count" class="microcopy"></p>
+      <input
+        type="file"
+        id="study-files"
+        accept="image/png,image/jpeg,image/webp"
+        multiple
+        hidden
+      />
+      <h3 data-i18n="studyHistory"></h3>
+      <p id="study-history-empty" data-i18n="studyHistoryEmpty"></p>
+      <div id="study-history" class="study-history"></div>
+      <p class="microcopy" data-i18n="studyStorageHint"></p>
+      <div class="dialog-actions">
+        <button class="button primary close-dialog" data-i18n="done"></button>
+      </div>
+    </dialog>
+    <aside id="study-panel" class="study-panel" hidden>
+      <div class="dialog-heading">
+        <strong data-i18n="study"></strong
+        ><button
+          id="study-collapse"
+          class="icon-button"
+          aria-expanded="true"
+        ></button
+        ><button
+          id="study-close"
+          class="icon-button"
+          data-i18n-aria-label="close"
+        >
+          <svg aria-hidden="true"><use href="#i-close" /></svg>
+        </button>
+      </div>
+      <p id="study-round"></p>
+      <div id="study-time" class="study-time" role="timer" aria-live="off">
+        01:00
+      </div>
+      <p id="study-status" role="status"></p>
+      <div class="study-extra">
+        <strong id="study-exercise-name"></strong>
+        <p id="study-exercise-hint" class="microcopy"></p>
+        <canvas id="study-reference-canvas" width="480" height="300"></canvas>
+        <p
+          id="study-reference-empty"
+          class="microcopy"
+          data-i18n="studyReferenceEmpty"
+        ></p>
+        <span id="study-reference-name"></span
+        ><label class="check-row"
+          ><input type="checkbox" id="study-reference-grid" /><span
+            data-i18n="studyReferenceGrid"
+          ></span
+        ></label>
+      </div>
+      <div class="workbench-actions study-controls">
+        <button
+          type="button"
+          id="study-pause"
+          class="button"
+          data-i18n="studyPause"
+        ></button
+        ><button
+          type="button"
+          id="study-resume"
+          class="button"
+          data-i18n="studyResume"
+        ></button
+        ><button
+          type="button"
+          id="study-next"
+          class="button primary"
+          data-i18n="studyNext"
+        ></button
+        ><button
+          type="button"
+          id="study-manage"
+          class="button"
+          data-i18n="studyManage"
+        ></button>
+      </div>
+    </aside>
     <dialog id="settings-dialog" class="wide-dialog">
       <div class="dialog-heading">
         <span data-i18n="settingsEyebrow" class="eyebrow"></span
@@ -1893,6 +2244,26 @@
         ><span data-i18n="fillTolerance" class=""></span
         ><output id="tolerance-value"></output></label
       ><input id="fill-tolerance" type="range" min="0" max="80" value="24" />
+      <div class="workbench-actions">
+        <button
+          type="button"
+          id="settings-guides"
+          class="button"
+          data-i18n="guides"
+        ></button
+        ><button
+          type="button"
+          id="settings-fillProfessional"
+          class="button"
+          data-i18n="fillProfessional"
+        ></button
+        ><button
+          type="button"
+          id="settings-study"
+          class="button"
+          data-i18n="study"
+        ></button>
+      </div>
       <div class="workbench-actions">
         <button
           id="workspace-open"

@@ -50,6 +50,15 @@ try {
         path: new URL("desktop-brushes.png", output).pathname,
       });
       await page.locator("#brush-dialog-done").click();
+      await page.locator("#settings-button").click();
+      await page.locator("#settings-guides").click();
+      await page.locator("#guide-mode").selectOption("perspective2");
+      await page.locator("#guide-snap").check();
+      await page.locator("#guides-dialog .close-dialog").first().click();
+      await page.locator("#guide-overlay").waitFor({ state: "visible" });
+      await page.screenshot({
+        path: new URL("desktop-guides.png", output).pathname,
+      });
     }
     if (device.name === "tablet") {
       await page.locator("#settings-button").click();
@@ -96,7 +105,38 @@ try {
       await page.screenshot({
         path: new URL("mobile-palettes.png", output).pathname,
       });
+      await page.locator("#palettes-dialog .close-dialog").first().click();
     }
+    await page.locator("#settings-button").click();
+    await page.locator("#settings-study").click();
+    const studyReference = await page
+      .locator("#drawing-canvas")
+      .evaluate((c) => c.toDataURL());
+    await page.locator("#study-files").setInputFiles({
+      name: "Desert shapes.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(studyReference.split(",")[1], "base64"),
+    });
+    await page.waitForFunction(() =>
+      document
+        .getElementById("study-reference-count")
+        .textContent.startsWith("1/12"),
+    );
+    await page.locator("#study-duration").fill("300");
+    await page.locator("#study-start").click();
+    if (device.name === "mobile") await page.locator("#study-collapse").click();
+    await page.locator("#study-pause").click();
+    await page.waitForFunction(
+      () =>
+        document
+          .getElementById("study-reference-canvas")
+          .getContext("2d")
+          .getImageData(240, 150, 1, 1).data[3] > 0,
+    );
+    await page.locator("#toast").waitFor({ state: "hidden" });
+    await page.screenshot({
+      path: new URL(device.name + "-study.png", output).pathname,
+    });
     await context.close();
     console.log(`Captured ${device.name}: ${device.width} × ${device.height}`);
   }

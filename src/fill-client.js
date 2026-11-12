@@ -1,7 +1,7 @@
 let worker;
 let nextId = 0;
 const pending = new Map();
-export function runFill(image, start, config) {
+export function runFill(image, start, config, reference = null) {
   worker ||= new Worker(new URL("./fill-worker.js", import.meta.url), {
     type: "module",
   });
@@ -38,9 +38,12 @@ export function runFill(image, start, config) {
         height: image.height,
         start,
         config,
+        reference: reference?.data.buffer,
         buffer: image.data.buffer,
       },
-      [image.data.buffer],
+      reference
+        ? [image.data.buffer, reference.data.buffer]
+        : [image.data.buffer],
     );
   });
 }

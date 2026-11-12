@@ -285,7 +285,7 @@ export function initTimelapse(api) {
     const snapshot = [...frames],
       output = document.createElement("canvas"),
       chunks = [];
-    let stream, recorder;
+    let stream, recorder, startTimeout;
     try {
       const first = new Image();
       first.src = snapshot[0];
@@ -293,14 +293,12 @@ export function initTimelapse(api) {
       output.width = first.width;
       output.height = first.height;
       const ctx = output.getContext("2d");
-      stream = output.captureStream(0);
-      const track = stream.getVideoTracks()[0];
-      // requestFrame avoids recording duplicate frames while an image decodes.
-      const manual = typeof track.requestFrame === "function";
-      if (!manual) {
-        stream.getTracks().forEach((t) => t.stop());
-        stream = output.captureStream(fps);
-      }
+      // Seed a real frame before starting the encoder. Automatic capture keeps
+      // a live track while browsers initialize their asynchronous video encoder.
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, output.width, output.height);
+      ctx.drawImage(first, 0, 0);
+      stream = output.captureStream(fps);
       recorder = new MediaRecorder(stream, {
         mimeType,
         videoBitsPerSecond: 3_000_000,
@@ -314,7 +312,31 @@ export function initTimelapse(api) {
       });
       // Register rejection handling immediately, even while frames are being encoded.
       completed.catch(() => {});
+      const started = new Promise((resolve, reject) => {
+        startTimeout = setTimeout(
+          () => reject(new Error("Encoder did not start")),
+          10_000,
+        );
+        recorder.addEventListener(
+          "start",
+          () => {
+            clearTimeout(startTimeout);
+            resolve();
+          },
+          { once: true },
+        );
+        recorder.addEventListener(
+          "error",
+          () => {
+            clearTimeout(startTimeout);
+            reject(new Error("Encoder failed"));
+          },
+          { once: true },
+        );
+      });
+      started.catch(() => {});
       recorder.start();
+      await started;
       $("timelapse-progress").max = snapshot.length;
       for (let i = 0; i < snapshot.length; i++) {
         if (recorder.state !== "recording") throw new Error("Recorder stopped");
@@ -324,19 +346,22 @@ export function initTimelapse(api) {
         ctx.fillStyle = "#fff";
         ctx.fillRect(0, 0, output.width, output.height);
         ctx.drawImage(image, 0, 0, output.width, output.height);
-        if (manual) track.requestFrame();
         $("timelapse-progress").value = i + 1;
+        // Let the capture source publish this canvas update before its hold time.
+        await new Promise((resolve) => requestAnimationFrame(resolve));
         await new Promise((resolve) => setTimeout(resolve, 1000 / fps));
       }
       recorder.stop();
       await completed;
       const blob = new Blob(chunks, { type: mimeType.split(";")[0] });
       if (!blob.size) throw new Error("Empty recording");
+      await validateRecording(blob, output.width, output.height);
       api.download(blob, mimeType.startsWith("video/mp4") ? "mp4" : "webm");
       api.toast("timelapseExported");
     } catch {
       api.toast("timelapseError");
     } finally {
+      clearTimeout(startTimeout);
       if (recorder?.state === "recording") recorder.stop();
       stream?.getTracks().forEach((t) => t.stop());
       exporting = false;
@@ -361,4 +386,32 @@ export function initTimelapse(api) {
   });
   window.addEventListener("pagehide", flush);
   return { load, capture, flush, refreshLanguage: render };
+}
+
+async function validateRecording(blob, width, height) {
+  const video = document.createElement("video"),
+    url = URL.createObjectURL(blob);
+  let timeout;
+  try {
+    await new Promise((resolve, reject) => {
+      timeout = setTimeout(
+        () => reject(new Error("Video decode timed out")),
+        5000,
+      );
+      video.preload = "auto";
+      video.muted = true;
+      video.onloadeddata = () =>
+        video.videoWidth === width && video.videoHeight === height
+          ? resolve()
+          : reject(new Error("Invalid video dimensions"));
+      video.onerror = () =>
+        reject(new Error("Video contains no playable frames"));
+      video.src = url;
+    });
+  } finally {
+    clearTimeout(timeout);
+    video.removeAttribute("src");
+    video.load();
+    URL.revokeObjectURL(url);
+  }
 }
